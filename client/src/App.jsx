@@ -1,146 +1,86 @@
-import { useEffect, useRef, useState } from "react";
-
-const CATEGORIES = {
-  famosos_mz: ["Mia Couto", "Samora Machel", "Maputo", "Beira", "Gorongosa", "Ilha de Moçambique"],
-  lugares_mz: ["Nampula", "Pemba", "Chimoio", "Tete", "Inhambane", "Quelimane"],
-  global: ["Cristiano Ronaldo", "Beyoncé", "Messi", "Netflix", "Coca-Cola", "Paris"],
-};
-
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+import React, { useState } from "react";
+import ThirtySeconds from "../games/ThirtySeconds.jsx";
+import WhoIsWho from "../games/WhoIsWho.jsx";
+import "./App.css";
 
 export default function App() {
-  const [phase, setPhase] = useState("setup"); // setup | playing | end
-  const [categoryId, setCategoryId] = useState("famosos_mz");
-  const [seconds, setSeconds] = useState(30);
-  const [item, setItem] = useState("");
-  const [score, setScore] = useState(0);
+  const [screen, setScreen] = useState("menu"); // menu | 30s | who
 
-  const timerRef = useRef(null);
-
-  function startGame() {
-    setScore(0);
-    setSeconds(30);
-    setItem(pickRandom(CATEGORIES[categoryId]));
-    setPhase("playing");
+  // ===== ROTAS =====
+  if (screen === "30s") {
+    return <ThirtySeconds onBack={() => setScreen("menu")} />;
   }
 
-  function stopGame() {
-    setPhase("end");
-    clearInterval(timerRef.current);
-    timerRef.current = null;
+  if (screen === "who") {
+    return <WhoIsWho onBack={() => setScreen("menu")} />;
   }
 
-  function correct() {
-    setScore((s) => s + 1);
-    setItem(pickRandom(CATEGORIES[categoryId]));
-  }
-
-  function pass() {
-    setItem(pickRandom(CATEGORIES[categoryId]));
-  }
-
-  useEffect(() => {
-    if (phase !== "playing") return;
-
-    timerRef.current = setInterval(() => {
-      setSeconds((s) => {
-        if (s <= 1) {
-          stopGame();
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-
-    return () => {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
-
+  // ===== MENU =====
   return (
-    <div style={{ maxWidth: 520, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
-      <h1>MZ Party Games</h1>
-      <p style={{ opacity: 0.7 }}>Modo: 1 telefone (offline) — 30 segundos</p>
-
-      {phase === "setup" && (
-        <div style={{ display: "grid", gap: 10 }}>
-          <label>
-            Categoria:
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              style={{ width: "100%", padding: 10, marginTop: 6 }}
-            >
-              {Object.keys(CATEGORIES).map((id) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button onClick={startGame} style={{ padding: 12 }}>
-            Começar (30s)
-          </button>
-
-          <p style={{ opacity: 0.7 }}>
-            Passe o telefone para a pessoa que vai explicar. O outro adivinha. Use ✅/❌.
-          </p>
-        </div>
-      )}
-
-      {phase === "playing" && (
-        <div style={{ marginTop: 12, padding: 12, border: "1px solid #ddd", borderRadius: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <b>Tempo: {seconds}s</b>
-            <b>Pontos: {score}</b>
+    <div className="appBg">
+      <div className="shell">
+        <header className="topHero">
+          <div className="brandLine">
+            <div className="logoDot" />
+            <div>
+              <div className="brandTitle">MZ Party Games</div>
+              <div className="brandSub">Versão web • protótipo</div>
+            </div>
           </div>
+        </header>
 
-          <div
-  style={{
-    fontSize: 32,
-    margin: "16px 0",
-    padding: "24px 16px",
-    borderRadius: 12,
-    background: "#ffffff",
-    color: "#000000",
-    textAlign: "center",
-    fontWeight: "700",
-    border: "2px solid #000",
-  }}
->
-  {item}
-</div>
+        <section className="panel">
+          <div className="panelTitle">Jogos</div>
 
+          {/* 30 Segundos */}
+          <button
+            className="gameCard"
+            onClick={() => setScreen("30s")}
+            type="button"
+          >
+            <div className="gameCardRow">
+              <div className="gameCardInfo">
+                <div className="gameCardTitle">⏱️ 30 Segundos</div>
+                <div className="gameCardSub">CulturaGeral_MZ ou Global • 30s</div>
+              </div>
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={correct} style={{ flex: 1, padding: 12 }}>
-              ✅ Acertou
-            </button>
-            <button onClick={pass} style={{ flex: 1, padding: 12 }}>
-              ❌ Passou
-            </button>
-          </div>
-
-          <button onClick={stopGame} style={{ width: "100%", padding: 10, marginTop: 10 }}>
-            Terminar
+              <span className="gameCardBtn">Jogar</span>
+            </div>
           </button>
-        </div>
-      )}
 
-      {phase === "end" && (
-        <div style={{ marginTop: 12 }}>
-          <h2>Fim!</h2>
-          <p>Pontos: <b>{score}</b></p>
-          <button onClick={() => setPhase("setup")} style={{ padding: 12, width: "100%" }}>
-            Jogar de novo
+          {/* Who Is Who (ATIVO) */}
+          <button
+            className="gameCard"
+            onClick={() => setScreen("who")}
+            type="button"
+          >
+            <div className="gameCardRow">
+              <div className="gameCardInfo">
+                <div className="gameCardTitle">🕵️ Quem Sou Eu?</div>
+                <div className="gameCardSub">Telefone na testa • 45s</div>
+              </div>
+
+              <span className="gameCardBtn">Jogar</span>
+            </div>
           </button>
-        </div>
-      )}
+
+          {/* Charadas (Em breve) */}
+          <button className="gameCard disabled" disabled type="button">
+            <div className="gameCardRow">
+              <div className="gameCardInfo">
+                <div className="gameCardTitle">🎭 imposter</div>
+                <div className="gameCardSub">....</div>
+              </div>
+
+              <span className="gameCardBtn ghost">Em breve</span>
+            </div>
+          </button>
+        </section>
+
+        <footer className="footNote">
+          Dica: nos jogos o round muda sozinho quando o tempo acabar.
+        </footer>
+      </div>
     </div>
   );
 }

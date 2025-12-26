@@ -1,42 +1,587 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+/* =========================================================
+   MZ PARTY GAMES — CSS BASE ESTÁVEL (Menu + 30 Segundos)
+   ========================================================= */
+
+/* ---------- Reset / Base ---------- */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body{
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: #07080c;
+  color: #e9ecf6;
+}
+
+/* ---------- Tokens ---------- */
+:root{
+  --bg: #07080c;
+  --panel: rgba(255,255,255,.045);
+  --panel2: rgba(0,0,0,.28);
+  --stroke: rgba(255,255,255,.10);
+  --stroke2: rgba(255,255,255,.14);
+
+  --txt: #e9ecf6;
+  --muted: rgba(233,236,246,.72);
+
+  --p1: #7b5cff;   /* roxo */
+  --p2: #00ffaa;   /* teal */
+  --danger: #c25151;
+
+  --r: 18px;
+  --r2: 14px;
+}
+
+/* ---------- Background + container ---------- */
+.appBg{
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 22px 14px;
+  background:
+    radial-gradient(1200px 700px at 20% 0%, rgba(123,92,255,.20), transparent 60%),
+    radial-gradient(900px 600px at 80% 10%, rgba(0,255,170,.12), transparent 60%),
+    var(--bg);
+}
+
+/* menu container (normal) */
+.shell{
+  width: 100%;
+  max-width: 760px;
+}
+
+/* game container (sem scroll geral) — ver passo 2 */
+.shellGame{
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---------- Header (Menu) ---------- */
+.topHero{ margin-bottom: 14px; }
+.brandLine{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logoDot{
+  width: 12px; height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--p1), var(--p2));
+  box-shadow: 0 0 18px rgba(123,92,255,.35);
+}
+
+.brandTitle{
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  color: var(--txt);
+}
+
+.brandSub{
+  margin-top: 2px;
+  opacity: .85;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ---------- Panel (Menu) ---------- */
+.panel{
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r);
+  padding: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+.panelTitle{
+  font-weight: 800;
+  opacity: .92;
+  margin: 2px 0 10px;
+}
+
+/* ---------- Game cards (Menu) ---------- */
+.gameCard{
+  width: 100%;
+  border: 1px solid var(--stroke);
+  background: var(--panel2);
+  border-radius: 16px;
+  padding: 14px;
+  color: var(--txt);
+  cursor: pointer;
+  text-align: left;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  margin-bottom: 10px;
+  transition: transform .12s ease, background .12s ease, border-color .12s ease;
+}
+
+.gameCard:hover{
+  transform: translateY(-1px);
+  border-color: rgba(123,92,255,.35);
+  background: rgba(255,255,255,.06);
+}
+
+.gameCard.disabled{
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.gameLeft{ min-width: 0; }
+
+.gameName{
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+
+.gameDesc{
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* “Jogar / Em breve” bonito (SEM amarelo) */
+.pill{
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  border: 1px solid var(--stroke2);
+  background: rgba(255,255,255,.06);
+  color: rgba(233,236,246,.9);
+}
+
+.pill.active{
+  background: linear-gradient(135deg, rgba(123,92,255,.95), rgba(0,255,170,.45));
+  border-color: rgba(255,255,255,.16);
+  box-shadow: 0 0 18px rgba(123,92,255,.22);
+  color: #0b0c12;
+}
+
+/* ---------- Footer (Menu) ---------- */
+.footNote{
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 2px;
+}
+
+/* =========================================================
+   SETUP (Escolha de categoria + nomes)
+   ========================================================= */
+.screen{
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 22px 14px;
+  background:
+    radial-gradient(1200px 700px at 20% 0%, rgba(123,92,255,.20), transparent 60%),
+    radial-gradient(900px 600px at 80% 10%, rgba(0,255,170,.12), transparent 60%),
+    var(--bg);
+  color: var(--txt);
+}
+
+.container{
+  width: 100%;
+  max-width: 760px;
+}
+
+.gameWrap{
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r);
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+.sectionTitle{
+  margin: 12px 0 8px;
+  font-weight: 900;
+  opacity: .92;
+}
+
+.segRow{
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.segBtn{
+  flex: 1 1 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(0,0,0,.25);
+  color: var(--txt);
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+
+.segBtn:hover{
+  transform: translateY(-1px);
+  border-color: rgba(123,92,255,.35);
+  background: rgba(255,255,255,.06);
+}
+
+.segBtn.on{
+  border-color: rgba(0,255,170,.35);
+  box-shadow: 0 0 18px rgba(0,255,170,.14);
+  background: linear-gradient(135deg, rgba(123,92,255,.25), rgba(0,255,170,.10));
+}
+
+.grid2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.inputs{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.niceInput{
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(0,0,0,.25);
+  color: var(--txt);
+  outline: none;
+}
+
+.niceInput:focus{
+  border-color: rgba(123,92,255,.45);
+  box-shadow: 0 0 0 3px rgba(123,92,255,.18);
+}
+
+.modalActions{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* =========================================================
+   BOTÕES (reutilizáveis)
+   ========================================================= */
+.btnGhost{
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke2);
+  background: rgba(255,255,255,.06);
+  color: var(--txt);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.btnPrimary{
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: linear-gradient(135deg, rgba(123,92,255,.95), rgba(0,255,170,.45));
+  color: #0b0c12;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(123,92,255,.22);
+}
+
+.btnSoft{
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(0,0,0,.25);
+  color: var(--txt);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.btnDanger{
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(194,81,81,.35);
+  color: var(--txt);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+/* =========================================================
+   JOGO (30 Segundos) — sem scroll geral, layout limpo
+   ========================================================= */
+
+/* Header do jogo */
+.gameHeader{
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r);
+  padding: 12px 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+.headerTitleBlock{
   text-align: center;
+  min-width: 0;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.h1Brand{
+  font-weight: 900;
+  letter-spacing: .2px;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.h2Game{
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 800;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.timerPill{
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,255,170,.28);
+  background: rgba(0,255,170,.08);
+  font-weight: 900;
 }
 
-.card {
-  padding: 2em;
+/* Corpo do jogo */
+.gameMain{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;  /* sem scroll geral */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
 }
 
-.read-the-docs {
-  color: #888;
+/* Score compacto */
+.scoreRow{
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.scoreBox{
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 9px 10px;
+  min-height: 0;
+}
+
+.scoreBox.active{
+  border-color: rgba(0,255,170,.30);
+  box-shadow: 0 0 16px rgba(0,255,170,.10);
+}
+
+.scoreBox.inactive{
+  opacity: .85;
+}
+
+.scoreLabel{
+  font-size: 12px;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.scoreNum{
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* Turn row */
+.turnRow{
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.turnText{
+  font-weight: 900;
+}
+
+.muted{
+  margin-left: 6px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.winRule{
+  color: var(--muted);
+  font-weight: 900;
+}
+
+/* CARTA — ocupa espaço e distribui os 4 itens */
+.card{
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.cardTop{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 9px;
+}
+
+.cardTitle{
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.cardHint{
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.itemsList{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  justify-content: space-between; /* espalha os 4 itens e ocupa a carta */
+}
+
+.itemBtn{
+  width: 100%;
+  padding: 11px 12px;
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+  color: var(--txt);
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.itemBtn:hover{
+  border-color: rgba(123,92,255,.30);
+  background: rgba(255,255,255,.06);
+}
+
+.itemBtn.done{
+  opacity: .70;
+}
+
+.tick{ font-size: 16px; }
+.itemText{ font-size: 16px; }
+
+/* DOCK (baixo) — como o mock */
+.actionDock{
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dockFull{ width: 100%; }
+
+.dock2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.footNoteDock{
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 800;
+  padding: 2px 0 0;
+}
+
+/* Overlay placar */
+.scoreOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.scoreOverlayCard{
+  width: 100%;
+  max-width: 360px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: rgba(10,12,18,.92);
+  padding: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.55);
+}
+
+.scoreOverlayTitle{
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.scoreOverlayLine{
+  color: var(--muted);
+  margin: 3px 0;
+  font-weight: 800;
+}
+
+.scoreOverlayHint{
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* Winner card */
+.winCard{
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.winTitle{ font-weight: 900; font-size: 16px; }
+.winSub{ color: var(--muted); margin: 6px 0 10px; font-weight: 800; }
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 720px){
+  .brandTitle{ font-size: 30px; }
+}
+
+@media (max-width: 560px){
+  .grid2{ grid-template-columns: 1fr; }
+  .gameHeader{ grid-template-columns: auto 1fr auto; }
+  .itemText{ font-size: 15px; }
 }
