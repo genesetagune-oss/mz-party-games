@@ -1,0 +1,40 @@
+// PLAY countdown
+  useEffect(() => {
+    if (view !== "play") return;
+    if (winner) return;
+    if (phase !== "ready") return;
+
+    const id = setInterval(() => {
+      setReadyLeft((r) => {
+        if (r <= 1) {
+          clearInterval(id);
+          setPhase("play");
+          setTimeLeft(ROUND_SECONDS);
+          return READY_SECONDS;
+        }
+        return r - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [view, phase, winner]);
+
+  const player = currentPlayerName();
+useEffect(() => {
+  if (view !== "play") return;
+  if (winner) return;
+  if (phase !== "play") return;
+
+  const id = setInterval(() => {
+    setTimeLeft((t) => {
+      if (t <= 1) {
+        clearInterval(id);
+        endRoundAuto(); // troca equipa quando acaba o tempo
+        return ROUND_SECONDS;
+      }
+      return t - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(id);
+}, [view, phase, winner]);

@@ -1,22 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "../src/App.css";
 
 const WIN_SCORE = 30;
 const CARD_SIZE = 4;
 
 const ROUND_SECONDS = 30;
-const READY_SECONDS = 5;
-const PAUSE_SECONDS = 10;
+const READY_SECONDS = 3;
 const SWAPS_PER_ROUND = 2;
 
-const SCOREBOARD_MS = 2000;
+const TRANSITION_SECONDS = 6; // ✅ NOVO: fase de transição (não mostrar countdown)
+
 const MAX_NAMES = 6;
 
 // =====================
 // ITENS
 // =====================
-// ✅ usa os teus arrays aqui (os que mandaste)
-// NOTA: não mexi nos teus itens. Só garanta que são strings válidas.
 export const ITEMS_GLOBAL = [
   "Michael Jackson","Elvis Presley","Madonna","The Beatles","Bob Marley",
   "Beyoncé","Rihanna","Taylor Swift","Drake","Eminem",
@@ -110,7 +109,6 @@ export const ITEMS_MZ = [
   "Mercado do Xipamanine","Mercado do Peixe","FEIMA","Feira Popular","Centro Cultural Franco-Moçambicano","Casa de Ferro","Museu de História Natural","Museu da Revolução",
   "Praça da Independência","Praça dos Heróis","Jardim Tunduru","Ponta Vermelha","Polana","Mafalala","Alto-Maé","Maxaquene","Zimpeto","Costa do Sol (bairro)",
 
-  // mistura global (tua lista)
   "Japão","Paris","Londres","Nova Iorque","Roma",
   "Madrid","Lisboa","Pequim","Tóquio","Dubai",
   "Rio de Janeiro","Pizza","Hambúrguer","Sushi","Chocolate",
@@ -143,7 +141,6 @@ function cleanNames(arr) {
     .filter(Boolean)
     .slice(0, MAX_NAMES);
 }
-
 export default function ThirtySeconds({ onBack }) {
   // view: setup -> play
   const [view, setView] = useState("setup");
@@ -152,10 +149,33 @@ export default function ThirtySeconds({ onBack }) {
   // nomes (até 6)
   const [teamANames, setTeamANames] = useState(Array(MAX_NAMES).fill(""));
   const [teamBNames, setTeamBNames] = useState(Array(MAX_NAMES).fill(""));
+
+  // ===== Overlay Nomes =====
+  const [showNamesOverlay, setShowNamesOverlay] = useState(false);
+  const [draftA, setDraftA] = useState(Array(MAX_NAMES).fill(""));
+  const [draftB, setDraftB] = useState(Array(MAX_NAMES).fill(""));
+
+  const hasAnyNames = useMemo(() => {
+    return teamANames.some((n) => n.trim()) || teamBNames.some((n) => n.trim());
+  }, [teamANames, teamBNames]);
+
+  function openNamesOverlay() {
+    setDraftA([...teamANames]);
+    setDraftB([...teamBNames]);
+    setShowNamesOverlay(true);
+  }
+  function saveNamesOverlay() {
+    setTeamANames([...draftA]);
+    setTeamBNames([...draftB]);
+    setShowNamesOverlay(false);
+  }
+  function cancelNamesOverlay() {
+    setShowNamesOverlay(false);
+  }
+
   const cleanA = useMemo(() => cleanNames(teamANames), [teamANames]);
   const cleanB = useMemo(() => cleanNames(teamBNames), [teamBNames]);
 
-  // items por categoria
   const items = useMemo(
     () => (category === "MZ" ? ITEMS_MZ : ITEMS_GLOBAL),
     [category]
@@ -204,7 +224,7 @@ export default function ThirtySeconds({ onBack }) {
   }
 
   // -----------------
-  // DECK sem repetição (FIX)
+  // DECK sem repetição
   // -----------------
   const deckRef = useRef([]);
   const deckPosRef = useRef(0);
@@ -261,29 +281,24 @@ export default function ThirtySeconds({ onBack }) {
   const [idxB, setIdxB] = useState(0);
 
   const [swapsLeft, setSwapsLeft] = useState(SWAPS_PER_ROUND);
-  const [pauseUsed, setPauseUsed] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [passUsed, setPassUsed] = useState(false);
 
-  const [passUsed, setPassUsed] = useState(false); // ✅ passar a vez (1 por round)
-
+  // phases: "transition" | "ready" | "play"
   const [phase, setPhase] = useState("ready");
+  const [transitionLeft, setTransitionLeft] = useState(TRANSITION_SECONDS);
   const [readyLeft, setReadyLeft] = useState(READY_SECONDS);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
-
-  // overlay placar
-  const [showScoreboard, setShowScoreboard] = useState(false);
-  const switchTimeoutRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current);
-    };
-  }, []);
 
   function currentPlayerName() {
     const list = teamRef.current === "A" ? cleanA : cleanB;
     const idx = teamRef.current === "A" ? idxA : idxB;
     return list.length ? list[idx % list.length] : null;
+  }
+
+  function checkWinner(nextA, nextB) {
+    if (nextA >= WIN_SCORE) setWinner("A");
+    if (nextB >= WIN_SCORE) setWinner("B");
   }
 
   function initGame() {
@@ -299,11 +314,12 @@ export default function ThirtySeconds({ onBack }) {
     setIdxB(0);
 
     setSwapsLeft(SWAPS_PER_ROUND);
-    setPauseUsed(false);
     setPaused(false);
     setPassUsed(false);
 
-    setPhase("ready");
+    // ✅ começa com transition
+    setPhase("transition");
+    setTransitionLeft(TRANSITION_SECONDS);
     setReadyLeft(READY_SECONDS);
     setTimeLeft(ROUND_SECONDS);
   }
@@ -315,36 +331,26 @@ export default function ThirtySeconds({ onBack }) {
     else setIdxB((x) => x + 1);
 
     setSwapsLeft(SWAPS_PER_ROUND);
-    setPauseUsed(false);
     setPaused(false);
     setPassUsed(false);
 
     loadNextCard();
 
-    setPhase("ready");
+    // ✅ 6s transition antes do countdown
+    setPhase("transition");
+    setTransitionLeft(TRANSITION_SECONDS);
+
+    // prepara o que vem a seguir
     setReadyLeft(READY_SECONDS);
     setTimeLeft(ROUND_SECONDS);
   }
 
   function endRoundAuto() {
     if (winner) return;
-
     const cur = teamRef.current;
     const nextTeam = cur === "A" ? "B" : "A";
-
     beep(520, 160, 0.2);
-    setShowScoreboard(true);
-
-    if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current);
-    switchTimeoutRef.current = setTimeout(() => {
-      setShowScoreboard(false);
-      startNewTurn(nextTeam);
-    }, SCOREBOARD_MS);
-  }
-
-  function checkWinner(nextA, nextB) {
-    if (nextA >= WIN_SCORE) setWinner("A");
-    if (nextB >= WIN_SCORE) setWinner("B");
+    startNewTurn(nextTeam);
   }
 
   function addPoint() {
@@ -368,6 +374,7 @@ export default function ThirtySeconds({ onBack }) {
     if (winner) return;
     if (phase !== "play") return;
     if (paused) return;
+    if (timeLeft <= 0) return;
     if (checked[i]) return;
 
     const nextChecked = [...checked];
@@ -384,7 +391,6 @@ export default function ThirtySeconds({ onBack }) {
   function undoLast() {
     if (winner) return;
     if (phase !== "play") return;
-    if (paused) return;
 
     setHistory((h) => {
       if (!h.length) return h;
@@ -416,23 +422,14 @@ export default function ThirtySeconds({ onBack }) {
     beep(700, 120, 0.14);
   }
 
+  // ✅ pausa manual (toggle)
   function pause10s() {
     if (winner) return;
     if (phase !== "play") return;
-    if (paused) return;
-    if (pauseUsed) return;
-
-    setPauseUsed(true);
-    setPaused(true);
+    setPaused((p) => !p);
     beep(220, 260, 0.25);
-
-    setTimeout(() => {
-      setPaused(false);
-      beep(660, 160, 0.2);
-    }, PAUSE_SECONDS * 1000);
   }
 
-  // ✅ NOVO: passar a vez (sem esperar 30s)
   function passTurnNow() {
     if (winner) return;
     if (phase !== "play") return;
@@ -455,27 +452,51 @@ export default function ThirtySeconds({ onBack }) {
     setView("play");
   }
 
-  // READY countdown
+  // -----------------
+  // TIMERS (transition -> ready -> play)
+  // -----------------
+  useEffect(() => {
+    if (view !== "play") return;
+    if (winner) return;
+    if (phase !== "transition") return;
+    if (paused) return;
+
+    const id = setInterval(() => {
+      setTransitionLeft((t) => {
+        if (t <= 1) {
+          clearInterval(id);
+          setPhase("ready");
+          setReadyLeft(READY_SECONDS);
+          return TRANSITION_SECONDS;
+        }
+        return t - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [view, winner, phase, paused]);
+
   useEffect(() => {
     if (view !== "play") return;
     if (winner) return;
     if (phase !== "ready") return;
+    if (paused) return;
 
     const id = setInterval(() => {
       setReadyLeft((r) => {
         if (r <= 1) {
           clearInterval(id);
           setPhase("play");
-          return READY_SECONDS;
+          setTimeLeft(ROUND_SECONDS);
+          return 0;
         }
         return r - 1;
       });
     }, 1000);
 
     return () => clearInterval(id);
-  }, [view, phase, winner]);
+  }, [view, winner, phase, paused]);
 
-  // PLAY countdown
   useEffect(() => {
     if (view !== "play") return;
     if (winner) return;
@@ -487,14 +508,14 @@ export default function ThirtySeconds({ onBack }) {
         if (t <= 1) {
           clearInterval(id);
           endRoundAuto();
-          return ROUND_SECONDS;
+          return 0;
         }
         return t - 1;
       });
     }, 1000);
 
     return () => clearInterval(id);
-  }, [view, phase, winner, paused]);
+  }, [view, winner, phase, paused]);
 
   const player = currentPlayerName();
 
@@ -503,78 +524,128 @@ export default function ThirtySeconds({ onBack }) {
   // -----------------
   if (view === "setup") {
     return (
-      <div className="screen">
-        <div className="container">
-          <div className="gameWrap">
-            <div className="setupHeader">
-              <div>
-                <h2 className="setupTitle">⏱️ 30 Segundos</h2>
-                <p className="setupHint">Escolhe categoria e escreve os nomes (opcional)</p>
-              </div>
+      <div className="setupScreen">
+        <div className="setupShell">
+          <header className="setupHeader">
+            <div className="setupTitle">⏱️ 30 Segundos</div>
+            <div className="setupSub">
+              Escolhe categoria e escreve os nomes (opcional)
             </div>
+          </header>
 
-            <div className="sectionTitle">Categoria</div>
-            <div className="segRow">
+          <main className="setupBody">
+            <section className="setupCard">
+              <div className="setupSectionTitle">Categoria</div>
+
+              <div className="catGrid2">
+                <button
+                  type="button"
+                  className={`segBtn ${category === "GLOBAL" ? "on" : ""}`}
+                  onClick={() => setCategory("GLOBAL")}
+                >
+                  🌍 Global
+                </button>
+                <button
+                  type="button"
+                  className={`segBtn ${category === "MZ" ? "on" : ""}`}
+                  onClick={() => setCategory("MZ")}
+                >
+                  🇲🇿 CulturaGeral_MZ
+                </button>
+              </div>
+
               <button
-                className={`segBtn ${category === "GLOBAL" ? "on" : ""}`}
-                onClick={() => setCategory("GLOBAL")}
+                className="btnGhost"
+                style={{ width: "100%", marginTop: 14 }}
+                type="button"
+                onClick={openNamesOverlay}
               >
-                🌍 Global
+                👥 {hasAnyNames ? "Editar nomes (opcional)" : "Adicionar nomes (opcional)"}
               </button>
-              <button
-                className={`segBtn ${category === "MZ" ? "on" : ""}`}
-                onClick={() => setCategory("MZ")}
-              >
-                🇲🇿 CulturaGeral_MZ
-              </button>
-            </div>
+            </section>
 
-            <div className="grid2">
-              <div>
-                <div className="sectionTitle">Nomes — Equipa A (até {MAX_NAMES})</div>
-                <div className="inputs">
-                  {teamANames.map((val, i) => (
-                    <input
-                      key={i}
-                      value={val}
-                      placeholder={`Jogador A${i + 1}`}
-                      onChange={(e) => {
-                        const copy = [...teamANames];
-                        copy[i] = e.target.value;
-                        setTeamANames(copy);
-                      }}
-                      className="niceInput"
-                    />
-                  ))}
-                </div>
-              </div>
+            <div className="setupBottomSpacer" />
+          </main>
 
-              <div>
-                <div className="sectionTitle">Nomes — Equipa B (até {MAX_NAMES})</div>
-                <div className="inputs">
-                  {teamBNames.map((val, i) => (
-                    <input
-                      key={i}
-                      value={val}
-                      placeholder={`Jogador B${i + 1}`}
-                      onChange={(e) => {
-                        const copy = [...teamBNames];
-                        copy[i] = e.target.value;
-                        setTeamBNames(copy);
-                      }}
-                      className="niceInput"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
+          <footer className="setupFooter">
+            <button
+              className="btnGhost setupFooterBtn"
+              type="button"
+              onClick={onBack}
+            >
+              ← Menu
+            </button>
 
-            <div className="modalActions">
-              <button className="btnGhost" onClick={onBack}>← Menu</button>
-              <button className="btnPrimary" onClick={onStartFromSetup}>▶️ Começar</button>
-            </div>
-          </div>
+            <button
+              className="btnPrimary setupFooterBtn"
+              type="button"
+              onClick={onStartFromSetup}
+            >
+              ▶️ Começar
+            </button>
+          </footer>
         </div>
+
+        {showNamesOverlay &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <div className="modalOverlay" onClick={cancelNamesOverlay}>
+              <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+                <div className="modalHeader">
+                  <div className="modalTitle">Nomes (opcional)</div>
+                  <div className="modalHint">Até {MAX_NAMES} por equipa</div>
+                </div>
+
+                <div className="modalContent">
+                  <div className="namesGrid2">
+                    <div>
+                      <div className="namesColTitle">Equipa A</div>
+                      {draftA.map((val, i) => (
+                        <input
+                          key={`da-${i}`}
+                          className="niceInput"
+                          placeholder={`Jogador A${i + 1}`}
+                          value={val}
+                          onChange={(e) => {
+                            const copy = [...draftA];
+                            copy[i] = e.target.value;
+                            setDraftA(copy);
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    <div>
+                      <div className="namesColTitle">Equipa B</div>
+                      {draftB.map((val, i) => (
+                        <input
+                          key={`db-${i}`}
+                          className="niceInput"
+                          placeholder={`Jogador B${i + 1}`}
+                          value={val}
+                          onChange={(e) => {
+                            const copy = [...draftB];
+                            copy[i] = e.target.value;
+                            setDraftB(copy);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modalActions">
+                  <button className="btnGhost" type="button" onClick={cancelNamesOverlay}>
+                    Cancelar
+                  </button>
+                  <button className="btnPrimary" type="button" onClick={saveNamesOverlay}>
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
       </div>
     );
   }
@@ -586,7 +657,9 @@ export default function ThirtySeconds({ onBack }) {
     <div className="appBg">
       <div className="shell shellGame">
         <header className="gameHeader">
-          <button className="btnGhost" onClick={onBack}>← Menu</button>
+          <button className="btnGhost" onClick={onBack} type="button">
+            ← Menu
+          </button>
 
           <div className="headerTitleBlock">
             <div className="h1Brand">MZ Party Games</div>
@@ -594,7 +667,11 @@ export default function ThirtySeconds({ onBack }) {
           </div>
 
           <div className="timerPill">
-            {phase === "ready" ? `⏳ ${readyLeft}s` : `⏱️ ${timeLeft}s`}
+            {phase === "transition"
+              ? ""
+              : phase === "ready"
+              ? `⏳ ${readyLeft}s`
+              : `⏱️ ${timeLeft}s`}
           </div>
         </header>
 
@@ -618,7 +695,9 @@ export default function ThirtySeconds({ onBack }) {
               ) : (
                 <>
                   Vez da Equipa <b>{team}</b>
-                  {player ? <span className="muted"> — {player} está a explicar</span> : null}
+                  {player ? (
+                    <span className="muted"> — {player} está a explicar</span>
+                  ) : null}
                 </>
               )}
             </div>
@@ -628,39 +707,92 @@ export default function ThirtySeconds({ onBack }) {
           {winner ? (
             <section className="winCard">
               <div className="winTitle">Jogo terminou 🎉</div>
-              <div className="winSub">Primeiro a chegar a {WIN_SCORE} pontos</div>
-              <button className="btnPrimary" onClick={restartGame}>🔁 Reiniciar</button>
+              <div className="winSub">
+                Primeiro a chegar a {WIN_SCORE} pontos
+              </div>
+              <button className="btnPrimary" onClick={restartGame} type="button">
+                🔁 Reiniciar
+              </button>
             </section>
           ) : null}
 
-          <section className={`card ${paused ? "paused" : ""}`}>
+          <section
+            className={`card ${paused ? "paused" : ""} ${
+              phase === "ready" ? "isReady" : ""
+            }`}
+          >
             <div className="cardTop">
               <div className="cardTitle">Carta</div>
               <div className="cardHint">
-                {phase === "ready" ? "A preparar…" : "Toca nos itens certos"}
+                {phase === "transition"
+                  ? ""
+                  : phase === "ready"
+                  ? "Pronto…"
+                  : "Toca nos itens certos"}
               </div>
             </div>
 
-            <div className="itemsList">
-              {card.map((item, i) => (
-                <button
-                  key={i}
-                  onClick={() => onToggleItem(i)}
-                  disabled={winner || phase !== "play" || paused || checked[i]}
-                  className={`itemBtn ${checked[i] ? "done" : ""}`}
-                >
-                  <span className="tick">{checked[i] ? "✅" : "☐"}</span>
-                  <span className="itemText">{item}</span>
-                </button>
-              ))}
-            </div>
+            {(phase === "transition" || phase === "ready") && !winner ? (
+              <div className="cardReadyOverlay" aria-live="polite">
+                <div className="readyPill">
+                  {phase === "transition" ? (
+                    <>
+                      <div className="readyTitle">Agora joga: Equipa {team}</div>
+                      <div className="readyCount">
+                        Jogador atual: {player || "—"}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="readyTitle">Pronto…</div>
+                      <div className="readyCount">{readyLeft}</div>
+                      <div className="readySub">Não espreitem 😉</div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {paused && phase === "play" && !winner ? (
+              <div className="cardReadyOverlay" aria-live="polite">
+                <div className="readyPill">
+                  <div className="readyTitle">Pausado</div>
+                  <div className="readyCount">Tempo congelado</div>
+                  <div className="readySub">Carrega em Pausa para voltar</div>
+                </div>
+              </div>
+            ) : null}
+
+            {paused && phase === "play" ? null : (
+              <div className="itemsList">
+                {card.map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onToggleItem(i)}
+                    disabled={
+                      winner ||
+                      phase !== "play" ||
+                      paused ||
+                      timeLeft <= 0 ||
+                      checked[i]
+                    }
+                    className={`itemBtn ${checked[i] ? "done" : ""}`}
+                    type="button"
+                  >
+                    <span className="tick">{checked[i] ? "✅" : "☐"}</span>
+                    <span className="itemText">{item}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
 
           <footer className="actionDock">
             <button
               className="btnSoft dockFull"
               onClick={undoLast}
-              disabled={winner || phase !== "play" || paused || history.length === 0}
+              disabled={winner || phase !== "play" || history.length === 0}
+              type="button"
             >
               ↩️ Desfazer último ponto
             </button>
@@ -669,6 +801,7 @@ export default function ThirtySeconds({ onBack }) {
               className="btnSoft dockFull"
               onClick={swapCard}
               disabled={winner || phase !== "play" || paused || swapsLeft <= 0}
+              type="button"
             >
               🔄 Trocar carta ({swapsLeft}/{SWAPS_PER_ROUND})
             </button>
@@ -677,6 +810,7 @@ export default function ThirtySeconds({ onBack }) {
               className="btnSoft dockFull"
               onClick={passTurnNow}
               disabled={winner || phase !== "play" || paused || passUsed}
+              type="button"
             >
               ⏭️ Passar a vez {passUsed ? "(usado)" : ""}
             </button>
@@ -685,12 +819,13 @@ export default function ThirtySeconds({ onBack }) {
               <button
                 className="btnSoft"
                 onClick={pause10s}
-                disabled={winner || phase !== "play" || paused || pauseUsed}
+                disabled={winner || phase !== "play"}
+                type="button"
               >
-                ⏸️ Pausa {PAUSE_SECONDS}s
+                ⏸️ Pausa
               </button>
 
-              <button className="btnDanger" onClick={restartGame}>
+              <button className="btnDanger" onClick={restartGame} type="button">
                 🔁 Reiniciar
               </button>
             </div>
@@ -700,17 +835,6 @@ export default function ThirtySeconds({ onBack }) {
             </div>
           </footer>
         </main>
-
-        {showScoreboard && !winner ? (
-          <div className="scoreOverlay">
-            <div className="scoreOverlayCard">
-              <div className="scoreOverlayTitle">📊 Placar Geral</div>
-              <div className="scoreOverlayLine">Equipa A: <b>{scoreA}</b></div>
-              <div className="scoreOverlayLine">Equipa B: <b>{scoreB}</b></div>
-              <div className="scoreOverlayHint">A mudar a vez…</div>
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   );

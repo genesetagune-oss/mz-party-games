@@ -1,97 +1,35 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  WHO_TEXT_MIX,
+  WHO_TEXT_MZ,
+  WHO_TEXT_GLOBAL,
+  WHO_PHOTOS_MZ,
+} from "./whoiswhoItems.jsx";
 
-/**
- * =========================
- * CONFIG
- * =========================
- */
-const ROUND_SECONDS = 45;
-const READY_SECONDS = 3; // 3..2..1 antes de começar
-const SCOREBOARD_MS = 1800;
+// ===== Ajustes =====
+const ROUND_SECONDS = 60;
+const COUNTDOWN_SECONDS = 3;
 
-const WIN_SCORE = 30; // podes mudar depois
-const MAX_NAMES = 4;
+// ✅ início: mensagem sem contador (mais longa)
+const START_MESSAGE_SECONDS = 6;
 
-/**
- * =========================
- * ITENS (TUDO AQUI DENTRO)
- * =========================
- * Nota: começa pequeno e depois aumentamos.
- * Mantém nomes curtos e fáceis de adivinhar.
- */
+// ✅ entre equipas: mensagem sem contador (curta)
+const SWITCH_MESSAGE_SECONDS = 6;
 
-// Pessoas & Personagens (global + mix)
-const ITEMS_PEOPLE = [
-  "Michael Jackson",
-  "Cristiano Ronaldo",
-  "Lionel Messi",
-  "Nelson Mandela",
-  "Barack Obama",
-  "Harry Potter",
-  "Batman",
-  "Homem-Aranha",
-  "James Bond",
-  "Rihanna",
-  "Beyoncé",
-  "Eminem",
-  "Bob Marley",
-  "Leonardo da Vinci",
-  "Albert Einstein",
-  "Usain Bolt",
+const WIN_POINTS = 30;
+
+const CENTER_THRESHOLD = 14;
+const TILT_THRESHOLD = 22;
+const MAX_PLAYERS_PER_TEAM = 4;
+
+const CATEGORIES = [
+  { key: "mix", title: "🎲 Mix Total", sub: "pessoas + coisas + MZ + global" },
+  { key: "mz", title: "🇲🇿 MZ Total", sub: "tudo em texto (MZ)" },
+  { key: "mzPic", title: "🖼️ MZ Fotos", sub: "marcas + famosos + lugares (MZ)" },
+  { key: "global", title: "🌍 Global", sub: "tudo em texto (global)" },
 ];
 
-// Objetos & Coisas
-const ITEMS_THINGS = [
-  "Pizza",
-  "Telemóvel",
-  "Carro",
-  "Avião",
-  "Óculos",
-  "Chocolate",
-  "Wi-Fi",
-  "Netflix",
-  "WhatsApp",
-  "Relógio",
-  "Bola",
-  "Livro",
-  "Fones",
-  "Chave",
-  "Mochila",
-];
-
-// MZ Mix (pessoas/lugares/coisas)
-const ITEMS_MZ = [
-  "Moçambique",
-  "Maputo",
-  "Matola",
-  "Beira",
-  "Nampula",
-  "Xima",
-  "Matapa",
-  "Capulana",
-  "Chapa",
-  "Marrabenta",
-  "Gorongosa",
-  "Avenida 25 de Setembro",
-  "Jardim Tunduru",
-  "UEM",
-  "FEIMA",
-];
-
-/**
- * Mix Total (padrão)
- * — mistura tudo + remove duplicados automaticamente
- */
-function unique(arr) {
-  return [...new Set(arr)];
-}
-const ITEMS_MIX = unique([...ITEMS_PEOPLE, ...ITEMS_THINGS, ...ITEMS_MZ]);
-
-/**
- * =========================
- * HELPERS
- * =========================
- */
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -101,137 +39,119 @@ function shuffle(arr) {
   return a;
 }
 
-// iPhone (Safari) precisa de permissão para sensores
-async function requestMotionPermissionIfNeeded() {
+const wrapText = (list) => list.map((t) => ({ type: "text", value: t }));
+const wrapPhotos = (list) => list.map((src) => ({ type: "img", src }));
+
+function buildDeck(categoryKey) {
+  if (categoryKey === "mzPic") return wrapPhotos(WHO_PHOTOS_MZ);
+  if (categoryKey === "mz") return wrapText(WHO_TEXT_MZ);
+  if (categoryKey === "global") return wrapText(WHO_TEXT_GLOBAL);
+  return wrapText(WHO_TEXT_MIX);
+}
+
+// localStorage helpers
+function safeParseJSON(str, fallback) {
   try {
-    if (
-      typeof DeviceMotionEvent !== "undefined" &&
-      typeof DeviceMotionEvent.requestPermission === "function"
-    ) {
-      const res = await DeviceMotionEvent.requestPermission();
-      return res === "granted";
-    }
-    return true; // Android/desktop geralmente ok
+    const v = JSON.parse(str);
+    return v ?? fallback;
   } catch {
-    return false;
+    return fallback;
   }
 }
+function normalizePlayers(arr) {
+  const base = Array.isArray(arr) ? arr : [];
+  const trimmed = base
+    .slice(0, MAX_PLAYERS_PER_TEAM)
+    .map((s) => String(s ?? ""));
+  while (trimmed.length < MAX_PLAYERS_PER_TEAM) trimmed.push("");
+  return trimmed;
+}
+function nonEmptyPlayers(arr) {
+  return (Array.isArray(arr) ? arr : [])
+    .map((s) => String(s ?? "").trim())
+    .filter(Boolean);
+}
+function getWhoFontClamp(text) {
+  const len = String(text ?? "").trim().length;
 
-// Hook: levantar/baixar (face up/down)
-function usePhoneFlip({ enabled, onFaceUp, onFaceDown }) {
-  const lastRef = useRef(0);
+  // Curto = gigante
+  if (len <= 6) return "clamp(80px, 18vw, 160px)";
+  if (len <= 10) return "clamp(70px, 16vw, 140px)";
+  if (len <= 14) return "clamp(60px, 14vw, 120px)";
+  if (len <= 18) return "clamp(52px, 12vw, 105px)";
 
-  useEffect(() => {
-    if (!enabled) return;
-
-    const handler = (e) => {
-      const a = e.accelerationIncludingGravity;
-      if (!a) return;
-
-      const z = a.z ?? 0;
-      const now = Date.now();
-
-      // anti-duplicar
-      if (now - lastRef.current < 650) return;
-
-      // z ~ +9.8 quando ecrã para cima; z ~ -9.8 quando ecrã para baixo
-      if (z > 8) {
-        lastRef.current = now;
-        onFaceUp?.();
-      } else if (z < -8) {
-        lastRef.current = now;
-        onFaceDown?.();
-      }
-    };
-
-    window.addEventListener("devicemotion", handler, { passive: true });
-    return () => window.removeEventListener("devicemotion", handler);
-  }, [enabled, onFaceUp, onFaceDown]);
+  // Longo = ainda grande, mas seguro
+  return "clamp(42px, 10vw, 90px)";
 }
 
-/**
- * Som (um contexto) + warmup
- */
-function useAudio() {
-  const audioRef = useRef(null);
-
-  function ensureAudio() {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!audioRef.current) audioRef.current = new AudioCtx();
-    if (audioRef.current.state === "suspended") audioRef.current.resume();
-    return audioRef.current;
-  }
-
-  function warmupAudio() {
-    try {
-      const ctx = ensureAudio();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = "sine";
-      o.frequency.value = 1;
-      g.gain.value = 0.00001;
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.start();
-      setTimeout(() => o.stop(), 60);
-    } catch {}
-  }
-
-  function beep(freq = 880, ms = 140, vol = 0.18, type = "square") {
-    try {
-      const ctx = ensureAudio();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = type;
-      o.frequency.value = freq;
-      g.gain.value = vol;
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.start();
-      setTimeout(() => o.stop(), ms);
-    } catch {}
-  }
-
-  return { warmupAudio, beep };
-}
-
-/**
- * =========================
- * COMPONENT
- * =========================
- */
 export default function WhoIsWho({ onBack }) {
-  const { warmupAudio, beep } = useAudio();
+  // ===== Setup =====
+  const [view, setView] = useState("setup");
+  const [categoryKey, setCategoryKey] = useState("mix");
 
-  // views
-  const [view, setView] = useState("setup"); // setup | play
+  // ===== Overlay nomes =====
+  const [showOverlay, setShowOverlay] = useState(false);
 
-  // categoria
-  const [category, setCategory] = useState("MIX"); // MIX | PEOPLE | THINGS | MZ
+  const [teamNameA, setTeamNameA] = useState(
+    localStorage.getItem("wiz_teamA") || ""
+  );
+  const [teamNameB, setTeamNameB] = useState(
+    localStorage.getItem("wiz_teamB") || ""
+  );
 
-  // nomes opcional (até 6)
-  const [teamANames, setTeamANames] = useState(Array(MAX_NAMES).fill(""));
-  const [teamBNames, setTeamBNames] = useState(Array(MAX_NAMES).fill(""));
+  const [playersA, setPlayersA] = useState(() =>
+    normalizePlayers(safeParseJSON(localStorage.getItem("wiz_playersA"), []))
+  );
+  const [playersB, setPlayersB] = useState(() =>
+    normalizePlayers(safeParseJSON(localStorage.getItem("wiz_playersB"), []))
+  );
 
-  function cleanNames(arr) {
-    return arr.map((s) => (s ?? "").trim()).filter(Boolean).slice(0, MAX_NAMES);
+  const teamLabelA = teamNameA.trim() || "Equipa A";
+  const teamLabelB = teamNameB.trim() || "Equipa B";
+
+  function saveNames() {
+    localStorage.setItem("wiz_teamA", teamNameA);
+    localStorage.setItem("wiz_teamB", teamNameB);
+    localStorage.setItem(
+      "wiz_playersA",
+      JSON.stringify(normalizePlayers(playersA))
+    );
+    localStorage.setItem(
+      "wiz_playersB",
+      JSON.stringify(normalizePlayers(playersB))
+    );
+    setShowOverlay(false);
   }
-  const cleanA = useMemo(() => cleanNames(teamANames), [teamANames]);
-  const cleanB = useMemo(() => cleanNames(teamBNames), [teamBNames]);
 
-  // deck por categoria
-  const items = useMemo(() => {
-    if (category === "PEOPLE") return ITEMS_PEOPLE;
-    if (category === "THINGS") return ITEMS_THINGS;
-    if (category === "MZ") return ITEMS_MZ;
-    return ITEMS_MIX; // default
-  }, [category]);
+  // ✅ MENU premium:
+  // - se estiver em play, volta para categorias (setup)
+  // - se estiver no setup, volta ao menu principal
+  function handleMenu() {
+    if (view === "play") {
+      setPaused(false);
+      setShowOverlay(false);
+      setGameOver(false);
+      setWinnerTeam(null);
+      setToast("");
+      setLastAction("neutral");
+      setCurrentCard(null);
 
-  const deckRef = useRef(null);
-  const [idx, setIdx] = useState(0);
-  const [current, setCurrent] = useState("");
+      setPhase("countdown");
+      setCountdownLeft(COUNTDOWN_SECONDS);
+      setTimeLeft(ROUND_SECONDS);
 
-  // jogo
+      setView("setup");
+      return;
+    }
+
+    onBack();
+  }
+  const [cardTick, setCardTick] = useState(0);
+
+  // ===== Sensor =====
+  const [hasSensorPermission, setHasSensorPermission] = useState(false);
+
+  // ===== Equipas / pontos =====
   const [team, setTeam] = useState("A");
   const teamRef = useRef("A");
   useEffect(() => {
@@ -240,189 +160,298 @@ export default function WhoIsWho({ onBack }) {
 
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
-  const [winner, setWinner] = useState(null);
 
-  // rodízio de nomes
-  const [nameIdxA, setNameIdxA] = useState(0);
-  const [nameIdxB, setNameIdxB] = useState(0);
+  const scoreARef = useRef(0);
+  const scoreBRef = useRef(0);
+  useEffect(() => {
+    scoreARef.current = scoreA;
+  }, [scoreA]);
+  useEffect(() => {
+    scoreBRef.current = scoreB;
+  }, [scoreB]);
 
-  function currentPlayerName() {
-    const list = team === "A" ? cleanA : cleanB;
-    const nidx = team === "A" ? nameIdxA : nameIdxB;
-    return list.length ? list[nidx % list.length] : null;
-  }
+  // ===== Deck =====
+  const deckRef = useRef([]);
+  const deckIndexRef = useRef(0);
 
-  // fases / timer
-  const [phase, setPhase] = useState("ready"); // ready | play
-  const [readyLeft, setReadyLeft] = useState(READY_SECONDS);
+  // ===== Tempo / fases =====
+  const [phase, setPhase] = useState("countdown"); // switch | countdown | play
+  const [switchLeft, setSwitchLeft] = useState(SWITCH_MESSAGE_SECONDS);
+  const [countdownLeft, setCountdownLeft] = useState(COUNTDOWN_SECONDS);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
 
-  const [showScoreboard, setShowScoreboard] = useState(false);
-  const switchTimeoutRef = useRef(null);
+  // ===== Carta =====
+  const [currentCard, setCurrentCard] = useState(null);
 
-  // histórico para desfazer (última ação)
-  // { item, action: "correct"|"pass", team }
-  const [history, setHistory] = useState([]);
+  // ===== Pausa =====
+  const [paused, setPaused] = useState(false);
 
-  function initDeckAndFirst() {
-    deckRef.current = shuffle(items);
-    setIdx(0);
-    setCurrent(deckRef.current?.[0] ?? "");
+  // ===== Game over =====
+  const [gameOver, setGameOver] = useState(false);
+  const [winnerTeam, setWinnerTeam] = useState(null);
+  // ===== Participantes (rotação por equipa) =====
+  const playersAList = useMemo(() => nonEmptyPlayers(playersA), [playersA]);
+  const playersBList = useMemo(() => nonEmptyPlayers(playersB), [playersB]);
+  const idxARef = useRef(-1);
+  const idxBRef = useRef(-1);
+
+  const [nextPerson, setNextPerson] = useState("");
+  const [nextGroup, setNextGroup] = useState("");
+
+  const isFirstStartRef = useRef(true);
+
+  function getTeamLabel(t) {
+    return t === "A" ? teamLabelA : teamLabelB;
   }
 
-  function drawNext() {
-    const d = deckRef.current;
-    if (!d) return;
+  function pickNextForTeam(t, doAdvance) {
+    const list = t === "A" ? playersAList : playersBList;
+    const group = getTeamLabel(t);
 
-    const next = idx + 1;
-    if (next >= d.length) {
-      alert("Acabou o baralho desta categoria! Adiciona mais itens 🙂");
-      return;
-    }
-    setIdx(next);
-    setCurrent(d[next]);
-  }
+    if (!list.length) return { person: group, group: "" };
 
-  function checkWinner(nextA, nextB) {
-    if (nextA >= WIN_SCORE) setWinner("A");
-    if (nextB >= WIN_SCORE) setWinner("B");
-  }
-
-  function addPointForCurrentTeam() {
-    const cur = teamRef.current;
-    if (cur === "A") {
-      setScoreA((s) => {
-        const n = s + 1;
-        checkWinner(n, scoreB);
-        return n;
-      });
+    if (t === "A") {
+      const nextIndex = (idxARef.current + 1) % list.length;
+      if (doAdvance) idxARef.current = nextIndex;
+      return { person: list[nextIndex], group };
     } else {
-      setScoreB((s) => {
-        const n = s + 1;
-        checkWinner(scoreA, n);
-        return n;
-      });
+      const nextIndex = (idxBRef.current + 1) % list.length;
+      if (doAdvance) idxBRef.current = nextIndex;
+      return { person: list[nextIndex], group };
     }
   }
 
-  function handleCorrect(source = "btn") {
-    if (winner) return;
-    if (phase !== "play") return;
-
-    // som acerto
-    beep(980, 90, 0.18);
-
-    setHistory((h) => [...h, { item: current, action: "correct", team: teamRef.current }]);
-    addPointForCurrentTeam();
-    drawNext();
+  function setNextUpForTeam(t, advance) {
+    const { person, group } = pickNextForTeam(t, advance);
+    setNextPerson(person);
+    setNextGroup(group);
   }
 
-  function handlePass() {
-    if (winner) return;
-    if (phase !== "play") return;
+  // ===== anti-spam tilt =====
+  const canTriggerRef = useRef(true);
 
-    // som passar (mais neutro)
-    beep(520, 70, 0.12, "sine");
+  // ===== feedback =====
+  const [lastAction, setLastAction] = useState("neutral");
+  const [toast, setToast] = useState("");
 
-    setHistory((h) => [...h, { item: current, action: "pass", team: teamRef.current }]);
-    drawNext();
+  const bgMode = useMemo(() => {
+    if (lastAction === "up") return "ok";
+    if (lastAction === "down") return "bad";
+    return "neutral";
+  }, [lastAction]);
+
+  function showCurrentItem() {
+    const deck = deckRef.current;
+    if (!deck || !deck.length) return;
+    setCurrentCard(deck[deckIndexRef.current % deck.length]);
   }
 
-  function undoLast() {
-    if (winner) return;
-    if (phase !== "play") return;
+  function advanceItem() {
+    const deck = deckRef.current;
+    if (!deck || !deck.length) return;
+    deckIndexRef.current = (deckIndexRef.current + 1) % deck.length;
+    setCurrentCard(deck[deckIndexRef.current]);
+  }
 
-    setHistory((h) => {
-      if (!h.length) return h;
+  function endGame(winner) {
+    setGameOver(true);
+    setWinnerTeam(winner);
+    setPaused(false);
+    setToast("");
+    setLastAction("neutral");
+    setCurrentCard(null);
+  }
 
-      const last = h[h.length - 1];
-
-      // volta para item anterior (precisamos voltar idx - 1)
-      setIdx((old) => Math.max(0, old - 1));
-      const d = deckRef.current;
-      if (d) {
-        const prevIndex = Math.max(0, idx - 1);
-        setCurrent(d[prevIndex] ?? current);
+  function addPointAndMaybeWin() {
+    if (teamRef.current === "A") {
+      const newScore = scoreARef.current + 1;
+      scoreARef.current = newScore;
+      setScoreA(newScore);
+      if (newScore >= WIN_POINTS) {
+        endGame("A");
+        return true;
       }
-
-      // se foi correct, tira ponto do time daquela ação (não do time atual)
-      if (last.action === "correct") {
-        if (last.team === "A") setScoreA((s) => Math.max(0, s - 1));
-        else setScoreB((s) => Math.max(0, s - 1));
+      return false;
+    } else {
+      const newScore = scoreBRef.current + 1;
+      scoreBRef.current = newScore;
+      setScoreB(newScore);
+      if (newScore >= WIN_POINTS) {
+        endGame("B");
+        return true;
       }
-
-      beep(420, 110, 0.15);
-      return h.slice(0, -1);
-    });
+      return false;
+    }
   }
 
-  function startNewTurn(nextTeam) {
-    setTeam(nextTeam);
-    if (nextTeam === "A") setNameIdxA((x) => x + 1);
-    else setNameIdxB((x) => x + 1);
+  function startCountdownForTeam(teamToPlay, advanceParticipant) {
+    setTeam(teamToPlay);
+    teamRef.current = teamToPlay;
 
-    setPhase("ready");
-    setReadyLeft(READY_SECONDS);
+    setPhase("countdown");
+    setCountdownLeft(COUNTDOWN_SECONDS);
     setTimeLeft(ROUND_SECONDS);
+
+    setCurrentCard(null);
+    canTriggerRef.current = true;
+    setLastAction("neutral");
+    setToast("");
+
+    setNextUpForTeam(teamToPlay, advanceParticipant);
+    advanceItem();
   }
 
-  function endRoundAuto() {
-    if (winner) return;
+  function beginSwitchMessage(nextTeam) {
+    isFirstStartRef.current = false;
+    setTeam(nextTeam);
+    teamRef.current = nextTeam;
 
-    const cur = teamRef.current;
-    const nextTeam = cur === "A" ? "B" : "A";
+    setPhase("switch");
+    setSwitchLeft(SWITCH_MESSAGE_SECONDS);
 
-    // som fim de tempo (grave)
-    beep(220, 260, 0.22);
+    setCurrentCard(null);
+    canTriggerRef.current = true;
+    setLastAction("neutral");
+    setToast("");
 
-    setShowScoreboard(true);
-
-    if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current);
-    switchTimeoutRef.current = setTimeout(() => {
-      setShowScoreboard(false);
-      startNewTurn(nextTeam);
-    }, SCOREBOARD_MS);
+    setNextUpForTeam(nextTeam, true);
+    advanceItem();
   }
 
-  useEffect(() => {
-    return () => {
-      if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current);
-    };
-  }, []);
+  function beginStartMessage(firstTeam) {
+    isFirstStartRef.current = true;
+    setTeam(firstTeam);
+    teamRef.current = firstTeam;
 
-  // READY countdown 3..2..1
+    setPhase("switch");
+    setSwitchLeft(START_MESSAGE_SECONDS);
+
+    setCurrentCard(null);
+    canTriggerRef.current = true;
+    setLastAction("neutral");
+    setToast("");
+
+    setNextUpForTeam(firstTeam, true);
+    advanceItem();
+  }
+
+  function startGameInternal(catKey) {
+    const chosen = catKey || categoryKey;
+
+    setGameOver(false);
+    setWinnerTeam(null);
+
+    idxARef.current = -1;
+    idxBRef.current = -1;
+
+    deckRef.current = shuffle(buildDeck(chosen));
+    deckIndexRef.current = 0;
+
+    scoreARef.current = 0;
+    scoreBRef.current = 0;
+    setScoreA(0);
+    setScoreB(0);
+
+    setPaused(false);
+    setView("play");
+
+    beginStartMessage("A");
+  }
+
+  async function startWithPermission(catKey) {
+    try {
+      setCategoryKey(catKey);
+
+      const needsIOSPermission =
+        typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function";
+
+      if (needsIOSPermission && !window.isSecureContext) {
+        setHasSensorPermission(false);
+        alert(
+          "No iPhone, sensores só funcionam em HTTPS (ex: Vercel). Vou começar sem inclinação."
+        );
+        startGameInternal(catKey);
+        return;
+      }
+
+      if (needsIOSPermission) {
+        const res = await DeviceOrientationEvent.requestPermission();
+        if (res !== "granted") {
+          setHasSensorPermission(false);
+          alert(
+            "Sem permissão de sensores. Vou começar sem inclinação (no Vercel funciona)."
+          );
+          startGameInternal(catKey);
+          return;
+        }
+      }
+
+      setHasSensorPermission(true);
+      startGameInternal(catKey);
+    } catch {
+      setHasSensorPermission(false);
+      alert("Falha ao pedir permissão. Vou começar sem inclinação.");
+      startGameInternal(catKey);
+    }
+  }
+
+  // ===== SWITCH TIMER =====
   useEffect(() => {
     if (view !== "play") return;
-    if (winner) return;
-    if (phase !== "ready") return;
+    if (phase !== "switch") return;
+    if (paused) return;
+    if (gameOver) return;
 
     const id = setInterval(() => {
-      setReadyLeft((r) => {
-        if (r <= 1) {
+      setSwitchLeft((s) => {
+        if (s <= 1) {
           clearInterval(id);
-          setPhase("play");
-          // som início de round
-          beep(880, 120, 0.16);
-          return READY_SECONDS;
+          startCountdownForTeam(teamRef.current, false);
+          return SWITCH_MESSAGE_SECONDS;
         }
-        return r - 1;
+        return s - 1;
       });
     }, 1000);
 
     return () => clearInterval(id);
-  }, [view, phase, winner]);
+  }, [view, phase, paused, gameOver]);
 
-  // PLAY countdown 45..0
+  // ===== COUNTDOWN TIMER =====
   useEffect(() => {
     if (view !== "play") return;
-    if (winner) return;
+    if (phase !== "countdown") return;
+    if (paused) return;
+    if (gameOver) return;
+
+    const id = setInterval(() => {
+      setCountdownLeft((c) => {
+        if (c <= 1) {
+          clearInterval(id);
+          setPhase("play");
+          showCurrentItem();
+          return COUNTDOWN_SECONDS;
+        }
+        return c - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [view, phase, paused, gameOver]);
+
+  // ===== ROUND TIMER =====
+  useEffect(() => {
+    if (view !== "play") return;
     if (phase !== "play") return;
+    if (paused) return;
+    if (gameOver) return;
 
     const id = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
           clearInterval(id);
-          endRoundAuto();
+          const nextTeam = teamRef.current === "A" ? "B" : "A";
+          setTimeout(() => beginSwitchMessage(nextTeam), 200);
           return ROUND_SECONDS;
         }
         return t - 1;
@@ -430,496 +459,372 @@ export default function WhoIsWho({ onBack }) {
     }, 1000);
 
     return () => clearInterval(id);
-  }, [view, phase, winner]);
+  }, [view, phase, paused, gameOver]);
 
-  // Levantar/baixar (se permitido)
-  const flipEnabled = view === "play" && phase === "play" && !winner && !showScoreboard;
+  // ===== SENSOR =====
+  useEffect(() => {
+    if (!hasSensorPermission) return;
+    if (view !== "play") return;
+    if (phase !== "play") return;
+    if (paused) return;
+    if (gameOver) return;
 
-  usePhoneFlip({
-    enabled: flipEnabled,
-    onFaceUp: () => handleCorrect("flip"),
-    onFaceDown: () => handlePass(),
-  });
+    function onOrient(e) {
+      const beta = typeof e.beta === "number" ? e.beta : 0;
+      const inCenter = Math.abs(beta) <= CENTER_THRESHOLD;
 
-  function restartGame() {
-    setWinner(null);
-    setTeam("A");
-    setScoreA(0);
-    setScoreB(0);
-    setNameIdxA(0);
-    setNameIdxB(0);
-    setHistory([]);
+      if (inCenter) {
+        canTriggerRef.current = true;
+        setLastAction("neutral");
+        return;
+      }
+      if (!canTriggerRef.current) return;
 
-    initDeckAndFirst();
+      if (beta >= TILT_THRESHOLD) {
+        canTriggerRef.current = false;
+        setLastAction("down");
+        setToast("❌");
+        advanceItem();
+        return;
+      }
 
-    setPhase("ready");
-    setReadyLeft(READY_SECONDS);
-    setTimeLeft(ROUND_SECONDS);
-  }
+      if (beta <= -TILT_THRESHOLD) {
+        canTriggerRef.current = false;
+        setLastAction("up");
 
-  async function onStartFromSetup() {
-    warmupAudio();
-    beep(880, 140, 0.18);
+        const won = addPointAndMaybeWin();
+        if (!won) {
+          setToast(`✅ +1 ${teamRef.current === "A" ? teamLabelA : teamLabelB}`);
+          advanceItem();
+        }
+      }
+    }
 
-    await requestMotionPermissionIfNeeded();
+    window.addEventListener("deviceorientation", onOrient, true);
+    return () =>
+      window.removeEventListener("deviceorientation", onOrient, true);
+  }, [hasSensorPermission, view, phase, paused, gameOver, teamLabelA, teamLabelB]);
 
-    // init jogo
-    setWinner(null);
-    setTeam("A");
-    setScoreA(0);
-    setScoreB(0);
-    setNameIdxA(0);
-    setNameIdxB(0);
-    setHistory([]);
+ // ===== SETUP UI (Premium / iPhone) =====
+if (view === "setup") {
+  const cat = CATEGORIES.find((c) => c.key === categoryKey);
+  const hasAnyNames =
+    teamNameA.trim() ||
+    teamNameB.trim() ||
+    playersA.some((p) => p.trim()) ||
+    playersB.some((p) => p.trim());
 
-    initDeckAndFirst();
+  return (
+    <div className="appBg">
+      <div className="shell whoShell">
+        <header className="gameHeader">
+          <button className="btnGhost" onClick={handleMenu} type="button">
+            ← Menu
+          </button>
 
-    setPhase("ready");
-    setReadyLeft(READY_SECONDS);
-    setTimeLeft(ROUND_SECONDS);
+          <div className="headerTitleBlock">
+            <div className="h1Brand">MZ Party Games</div>
+            <div className="h2Game">Who Is Who</div>
+          </div>
 
-    setView("play");
-  }
+          <div className="timerPill">{ROUND_SECONDS}s</div>
+        </header>
 
-  const player = currentPlayerName();
-
-  /**
-   * =========================
-   * UI (sem scroll)
-   * =========================
-   */
-  const styles = {
-    appBg: {
-      height: "100dvh",
-      overflow: "hidden",
-      background:
-        "radial-gradient(1200px 700px at 20% 0%, rgba(123,92,255,.18), transparent 60%)," +
-        "radial-gradient(900px 600px at 80% 10%, rgba(0,255,170,.10), transparent 60%)," +
-        "#07080c",
-      color: "#fff",
-      display: "flex",
-      justifyContent: "center",
-      padding: 14,
-      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
-    },
-    shell: {
-      width: "100%",
-      maxWidth: 760,
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      gap: 12,
-    },
-    card: {
-      background: "rgba(255,255,255,.04)",
-      border: "1px solid rgba(255,255,255,.08)",
-      borderRadius: 18,
-      boxShadow: "0 10px 30px rgba(0,0,0,.35)",
-      overflow: "hidden",
-    },
-    header: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 10,
-      padding: "12px 12px",
-    },
-    btnGhost: {
-      border: "1px solid rgba(255,255,255,.14)",
-      background: "rgba(255,255,255,.06)",
-      color: "#fff",
-      padding: "10px 12px",
-      borderRadius: 999,
-      fontWeight: 800,
-      cursor: "pointer",
-    },
-    titleBlock: { display: "flex", flexDirection: "column", lineHeight: 1.1 },
-    brand: { fontSize: 12, opacity: 0.78, fontWeight: 700 },
-    gameTitle: { fontSize: 16, fontWeight: 900, letterSpacing: 0.2 },
-    timerPill: {
-      padding: "10px 12px",
-      borderRadius: 999,
-      fontWeight: 900,
-      border: "1px solid rgba(255,255,255,.14)",
-      background: "rgba(0,0,0,.25)",
-      minWidth: 92,
-      textAlign: "center",
-    },
-    main: {
-      flex: "1 1 auto",
-      minHeight: 0,
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-    },
-    scoreRow: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 10,
-      padding: "0 2px",
-    },
-    scoreBox: (active) => ({
-      padding: "10px 12px",
-      borderRadius: 14,
-      border: "1px solid rgba(255,255,255,.10)",
-      background: active ? "rgba(123,92,255,.16)" : "rgba(0,0,0,.20)",
-    }),
-    scoreLabel: { fontSize: 12, opacity: 0.82, fontWeight: 800 },
-    scoreNum: { fontSize: 26, fontWeight: 900, marginTop: 3, lineHeight: 1 },
-    turnRow: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "baseline",
-      gap: 10,
-      padding: "0 2px",
-    },
-    turnText: { fontWeight: 900 },
-    muted: { opacity: 0.75, fontWeight: 700 },
-    bigWordCard: {
-      flex: "1 1 auto",
-      minHeight: 0,
-      borderRadius: 18,
-      border: "1px solid rgba(255,255,255,.08)",
-      background: "rgba(0,0,0,.28)",
-      padding: 14,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      textAlign: "center",
-    },
-    bigWordWrap: { maxWidth: 680, width: "100%" },
-    youAre: { fontSize: 13, letterSpacing: 1.6, opacity: 0.75, fontWeight: 900 },
-    bigWord: {
-      marginTop: 10,
-      fontSize: 44,
-      fontWeight: 1000,
-      letterSpacing: 0.4,
-      lineHeight: 1.05,
-      textTransform: "uppercase",
-      wordBreak: "break-word",
-    },
-    dock: {
-      borderRadius: 18,
-      border: "1px solid rgba(255,255,255,.08)",
-      background: "rgba(0,0,0,.25)",
-      padding: 12,
-      display: "grid",
-      gap: 10,
-    },
-    dockRow2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
-    btnPrimary: {
-      border: "1px solid rgba(255,255,255,.14)",
-      background:
-        "linear-gradient(135deg, rgba(123,92,255,.95), rgba(0,255,170,.55))",
-      color: "#fff",
-      padding: "14px 14px",
-      borderRadius: 14,
-      fontWeight: 1000,
-      cursor: "pointer",
-      textAlign: "center",
-    },
-    btnSoft: {
-      border: "1px solid rgba(255,255,255,.14)",
-      background: "rgba(255,255,255,.06)",
-      color: "#fff",
-      padding: "14px 14px",
-      borderRadius: 14,
-      fontWeight: 950,
-      cursor: "pointer",
-      textAlign: "center",
-    },
-    btnDanger: {
-      border: "1px solid rgba(255,120,120,.25)",
-      background: "rgba(255,80,80,.18)",
-      color: "#fff",
-      padding: "14px 14px",
-      borderRadius: 14,
-      fontWeight: 950,
-      cursor: "pointer",
-      textAlign: "center",
-    },
-    disabled: { opacity: 0.55, cursor: "not-allowed" },
-    overlay: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,.55)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 18,
-    },
-    overlayCard: {
-      width: "100%",
-      maxWidth: 420,
-      borderRadius: 18,
-      border: "1px solid rgba(255,255,255,.12)",
-      background: "rgba(10,12,18,.92)",
-      padding: 16,
-      textAlign: "center",
-    },
-    overlayTitle: { fontSize: 16, fontWeight: 1000 },
-    overlayLine: { marginTop: 8, fontSize: 14, opacity: 0.9 },
-    hint: { marginTop: 10, opacity: 0.7, fontSize: 12 },
-    setupPanel: {
-      padding: 14,
-      display: "flex",
-      flexDirection: "column",
-      gap: 12,
-    },
-    segRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
-    segRow2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
-    segBtn: (on) => ({
-      border: "1px solid rgba(255,255,255,.14)",
-      background: on ? "rgba(123,92,255,.18)" : "rgba(255,255,255,.06)",
-      color: "#fff",
-      padding: "12px 12px",
-      borderRadius: 14,
-      fontWeight: 950,
-      cursor: "pointer",
-      textAlign: "left",
-    }),
-    inputsGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
-    inputCol: { display: "flex", flexDirection: "column", gap: 8 },
-    input: {
-      width: "100%",
-      padding: 12,
-      borderRadius: 14,
-      border: "1px solid rgba(255,255,255,.14)",
-      background: "rgba(0,0,0,.25)",
-      color: "#fff",
-      outline: "none",
-    },
-    smallText: { fontSize: 12, opacity: 0.75 },
-  };
-
-  // ====== SETUP ======
-  if (view === "setup") {
-    return (
-      <div style={styles.appBg}>
-        <div style={styles.shell}>
-          <div style={{ ...styles.card }}>
-            <div style={styles.header}>
-              <button style={styles.btnGhost} onClick={onBack}>
-                ← Menu
-              </button>
-
-              <div style={styles.titleBlock}>
-                <div style={styles.brand}>MZ Party Games</div>
-                <div style={styles.gameTitle}>Quem Sou Eu?</div>
-              </div>
-
-              <div style={styles.timerPill}>⏱️ 45s</div>
+        {/* ✅ Setup premium: lista scroll + dock fixo */}
+        <div className="whoSetupShell">
+          <div className="whoSetupScroll">
+            <div className="panelTitle" style={{ marginBottom: 10 }}>
+              Categoria
             </div>
 
-            <div style={styles.setupPanel}>
-              <div style={{ fontWeight: 900, opacity: 0.9 }}>Categoria</div>
-
-              <div style={styles.segRow}>
+            {/* ✅ Grid estilo 1ª foto */}
+            <div className="whoCatsGrid">
+              {CATEGORIES.map((c) => (
                 <button
-                  style={styles.segBtn(category === "MIX")}
-                  onClick={() => setCategory("MIX")}
+                  key={c.key}
+                  type="button"
+                  className={`whoCatTile ${categoryKey === c.key ? "on" : ""}`}
+                  onClick={() => startWithPermission(c.key)}
                 >
-                  🎲 Mix Total (padrão)
-                  <div style={styles.smallText}>pessoas + personagens + coisas + MZ</div>
+                  <div className="whoCatTileTitle">{c.title}</div>
+                  <div className="whoCatTileSub">{c.sub}</div>
                 </button>
-                <button
-                  style={styles.segBtn(category === "PEOPLE")}
-                  onClick={() => setCategory("PEOPLE")}
-                >
-                  👤 Pessoas & Personagens
-                  <div style={styles.smallText}>celebs + históricos + filmes</div>
-                </button>
-              </div>
-
-              <div style={styles.segRow2}>
-                <button
-                  style={styles.segBtn(category === "THINGS")}
-                  onClick={() => setCategory("THINGS")}
-                >
-                  🧱 Objetos & Coisas
-                  <div style={styles.smallText}>objetos + comida + tech</div>
-                </button>
-                <button
-                  style={styles.segBtn(category === "MZ")}
-                  onClick={() => setCategory("MZ")}
-                >
-                  🇲🇿 MZ Mix
-                  <div style={styles.smallText}>lugares + cultura + cenas locais</div>
-                </button>
-              </div>
-
-              <div style={{ marginTop: 6, fontWeight: 900, opacity: 0.9 }}>
-                Nomes (opcional) — até {MAX_NAMES} por equipa
-              </div>
-
-              <div style={styles.inputsGrid}>
-                <div style={styles.inputCol}>
-                  <div style={styles.smallText}>Equipa A</div>
-                  {teamANames.map((v, i) => (
-                    <input
-                      key={i}
-                      style={styles.input}
-                      placeholder={`Jogador A${i + 1}`}
-                      value={v}
-                      onChange={(e) => {
-                        const copy = [...teamANames];
-                        copy[i] = e.target.value;
-                        setTeamANames(copy);
-                      }}
-                    />
-                  ))}
-                </div>
-
-                <div style={styles.inputCol}>
-                  <div style={styles.smallText}>Equipa B</div>
-                  {teamBNames.map((v, i) => (
-                    <input
-                      key={i}
-                      style={styles.input}
-                      placeholder={`Jogador B${i + 1}`}
-                      value={v}
-                      onChange={(e) => {
-                        const copy = [...teamBNames];
-                        copy[i] = e.target.value;
-                        setTeamBNames(copy);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <button style={styles.btnPrimary} onClick={onStartFromSetup}>
-                ▶️ Começar
-              </button>
-
-              <div style={styles.smallText}>
-                Dica: se o “levantar/baixar” não funcionar no teu iPhone, usa os botões ✅/❌.
-              </div>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
 
-  // ====== PLAY ======
-  return (
-    <div style={styles.appBg}>
-      <div style={styles.shell}>
-        <div style={styles.card}>
-          <div style={styles.header}>
-            <button style={styles.btnGhost} onClick={onBack}>
-              ← Menu
+          {/* ✅ Dock fixo em baixo (sem “buraco” no iPhone) */}
+          <div className="whoSetupDock">
+            <div className="whoSetupHintLine">
+              <div className="whoSetupHintTitle">{cat?.title}</div>
+              <div className="whoSetupHintText">
+                Levanta = ✅ (+1) • Baixa = ❌ (passa) • Toca no meio para pausar
+              </div>
+            </div>
+
+            <button
+              className="btnGhost"
+              style={{ width: "100%" }}
+              onClick={() => setShowOverlay(true)}
+              type="button"
+            >
+              👥 {hasAnyNames ? "Editar nomes / participantes" : "Adicionar nomes (opcional)"}
             </button>
 
-            <div style={styles.titleBlock}>
-              <div style={styles.brand}>MZ Party Games</div>
-              <div style={styles.gameTitle}>Quem Sou Eu?</div>
-            </div>
-
-            <div style={styles.timerPill}>
-              {phase === "ready" ? `⏳ ${readyLeft}s` : `⏱️ ${timeLeft}s`}
-            </div>
-          </div>
-
-          <div style={styles.main}>
-            <div style={styles.scoreRow}>
-              <div style={styles.scoreBox(team === "A")}>
-                <div style={styles.scoreLabel}>Equipa A</div>
-                <div style={styles.scoreNum}>{scoreA}</div>
-              </div>
-              <div style={styles.scoreBox(team === "B")}>
-                <div style={styles.scoreLabel}>Equipa B</div>
-                <div style={styles.scoreNum}>{scoreB}</div>
-              </div>
-            </div>
-
-            <div style={styles.turnRow}>
-              <div style={styles.turnText}>
-                {winner ? (
-                  <>🏆 Vencedor: Equipa {winner}</>
-                ) : (
-                  <>
-                    Vez da Equipa <b>{team}</b>
-                    {player ? <span style={styles.muted}> — {player} explica</span> : null}
-                  </>
-                )}
-              </div>
-              <div style={{ opacity: 0.8, fontWeight: 800 }}>Vitória: {WIN_SCORE}</div>
-            </div>
-
-            <div style={styles.bigWordCard}>
-              <div style={styles.bigWordWrap}>
-                <div style={styles.youAre}>
-                  {phase === "ready" ? "PREPARAR…" : "EU SOU…"}
-                </div>
-                <div style={styles.bigWord}>
-                  {current || "—"}
-                </div>
-                <div style={{ marginTop: 10, opacity: 0.72, fontSize: 12 }}>
-                  Levanta o telemóvel = ✅ acertou • Baixa = ❌ passar
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.dock}>
-              <button
-                style={{
-                  ...styles.btnPrimary,
-                  ...(winner || phase !== "play" ? styles.disabled : null),
-                }}
-                disabled={winner || phase !== "play"}
-                onClick={() => handleCorrect("btn")}
-              >
-                ✅ ACERTEI
-              </button>
-
-              <button
-                style={{
-                  ...styles.btnSoft,
-                  ...(winner || phase !== "play" ? styles.disabled : null),
-                }}
-                disabled={winner || phase !== "play"}
-                onClick={handlePass}
-              >
-                ❌ PASSAR
-              </button>
-
-              <div style={styles.dockRow2}>
-                <button
-                  style={{
-                    ...styles.btnSoft,
-                    ...(winner || phase !== "play" || history.length === 0 ? styles.disabled : null),
-                  }}
-                  disabled={winner || phase !== "play" || history.length === 0}
-                  onClick={undoLast}
-                >
-                  ↩️ DESFAZER
-                </button>
-
-                <button style={styles.btnDanger} onClick={restartGame}>
-                  🔁 REINICIAR
-                </button>
-              </div>
+            <div className="whoSetupMeta">
+              Início: <b>{START_MESSAGE_SECONDS}s</b> • Troca: <b>{SWITCH_MESSAGE_SECONDS}s</b> • Vitória:{" "}
+              <b>{WIN_POINTS}</b>
             </div>
           </div>
         </div>
 
-        {showScoreboard && !winner ? (
-          <div style={styles.overlay}>
-            <div style={styles.overlayCard}>
-              <div style={styles.overlayTitle}>📊 Placar</div>
-              <div style={styles.overlayLine}>
-                Equipa A: <b>{scoreA}</b>
+        {/* ✅ Overlay nomes (portal) */}
+        {showOverlay &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <div className="modalOverlay" onClick={() => setShowOverlay(false)}>
+              <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+                <div className="panel" style={{ width: "100%", maxWidth: 520 }}>
+                  <div className="panelTitle">Nomes (opcional)</div>
+
+                  <div className="namesGrid">
+                    <div>
+                      <div style={{ fontWeight: 900, marginBottom: 6, opacity: 0.9 }}>
+                        Equipa A
+                      </div>
+
+                      <input
+                        className="nameInput"
+                        placeholder="Nome da Equipa A"
+                        value={teamNameA}
+                        onChange={(e) => setTeamNameA(e.target.value)}
+                      />
+
+                      {playersA.map((v, i) => (
+                        <input
+                          key={`pa-${i}`}
+                          className="nameInput"
+                          placeholder={`Participante A${i + 1}`}
+                          value={v}
+                          onChange={(e) => {
+                            const next = [...playersA];
+                            next[i] = e.target.value;
+                            setPlayersA(next);
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    <div>
+                      <div style={{ fontWeight: 900, marginBottom: 6, opacity: 0.9 }}>
+                        Equipa B
+                      </div>
+
+                      <input
+                        className="nameInput"
+                        placeholder="Nome da Equipa B"
+                        value={teamNameB}
+                        onChange={(e) => setTeamNameB(e.target.value)}
+                      />
+
+                      {playersB.map((v, i) => (
+                        <input
+                          key={`pb-${i}`}
+                          className="nameInput"
+                          placeholder={`Participante B${i + 1}`}
+                          value={v}
+                          onChange={(e) => {
+                            const next = [...playersB];
+                            next[i] = e.target.value;
+                            setPlayersB(next);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ✅ ações fixas no fundo do modal */}
+                  <div className="modalActions">
+                    <button className="btnPrimary" onClick={saveNames} type="button">
+                      Guardar
+                    </button>
+                    <button className="btnGhost" onClick={() => setShowOverlay(false)} type="button">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div style={styles.overlayLine}>
-                Equipa B: <b>{scoreB}</b>
-              </div>
-              <div style={styles.hint}>A mudar de vez…</div>
-            </div>
-          </div>
-        ) : null}
+            </div>,
+            document.body
+          )}
       </div>
     </div>
   );
+}
+
+// ===== PLAY UI =====
+const winnerLabel =
+  winnerTeam === "A" ? teamLabelA : winnerTeam === "B" ? teamLabelB : "";
+
+return (
+  <div className="appBg">
+    <div className="shell whoShell">
+      <header className="gameHeader">
+        <button className="btnGhost" onClick={handleMenu} type="button">
+          ← Menu
+        </button>
+
+        <div className="headerTitleBlock">
+          <div className="h1Brand">MZ Party Games</div>
+          <div className="h2Game">Who Is Who</div>
+        </div>
+
+        <div className="timerPill">
+          {gameOver
+            ? "🏁 Fim"
+            : paused
+            ? "⏸ Pausado"
+            : phase === "switch"
+            ? "🔁 Troca"
+            : phase === "countdown"
+            ? `⏳ ${countdownLeft}s`
+            : `⏱️ ${timeLeft}s`}
+        </div>
+      </header>
+
+      <div className="gameMain">
+        <div className="scoreRow">
+          <div className={`scoreBox ${team === "A" ? "active" : "inactive"}`}>
+            <div className="scoreLabel">{teamLabelA}</div>
+            <div className="scoreNum">{scoreA}</div>
+          </div>
+
+          <div className={`scoreBox ${team === "B" ? "active" : "inactive"}`}>
+            <div className="scoreLabel">{teamLabelB}</div>
+            <div className="scoreNum">{scoreB}</div>
+          </div>
+        </div>
+
+        <div
+          className={`whoStage ${bgMode} cat-${categoryKey}`}
+          onClick={() => {
+            if (gameOver) return;
+            setPaused((p) => !p);
+            setToast("");
+            setLastAction("neutral");
+            canTriggerRef.current = true;
+          }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={() => {}}
+        >
+          <div className="whoStageInner">
+            {gameOver ? (
+              <>
+                <div className="whoBig">🏆 {winnerLabel}</div>
+                <div className="whoSmall">Venceu com {WIN_POINTS} pontos.</div>
+
+                <div style={{ width: "min(78vw, 520px)", display: "grid", gap: 10 }}>
+                  <button
+                    className="btnPrimary"
+                    type="button"
+                    onClick={() => startGameInternal(categoryKey)}
+                  >
+                    Jogar outra vez
+                  </button>
+                  <button className="btnGhost" type="button" onClick={handleMenu}>
+                    Menu
+                  </button>
+                </div>
+              </>
+            ) : paused ? (
+              <>
+                <div className="whoBig">⏸ Pausado</div>
+                <div className="whoSmall">Toca no meio para continuar.</div>
+              </>
+            ) : phase === "switch" ? (
+              <>
+                <div className="whoBig" style={{ fontSize: "clamp(22px, 5vw, 48px)" }}>
+                  Agora é:
+                </div>
+
+                <div
+                  className="whoBig"
+                  style={{
+                    fontSize: "clamp(26px, 6vw, 60px)",
+                    maxWidth: "min(78vw, 520px)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {nextPerson}
+                </div>
+
+                {nextGroup ? (
+                  <div
+                    className="whoSmall"
+                    style={{
+                      maxWidth: "min(78vw, 520px)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {nextGroup}
+                  </div>
+                ) : null}
+
+                {isFirstStartRef.current ? (
+                  <div className="whoSmall">
+                    Posiciona o telefone na testa e deixa a equipa dar dicas.
+                  </div>
+                ) : null}
+              </>
+            ) : phase === "countdown" ? (
+              <>
+                <div className="whoBig">Pronto… {countdownLeft}</div>
+
+                <div
+                  className="whoSmall"
+                  style={{
+                    maxWidth: "min(78vw, 520px)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  Agora: <b>{nextPerson}</b>
+                  {nextGroup ? ` — ${nextGroup}` : ""}
+                </div>
+              </>
+            ) : currentCard?.type === "img" ? (
+              <div className="whoImgWrap">
+                <img className="whoImg" src={currentCard.src} alt="who" />
+              </div>
+            ) : (
+              <div
+                className="whoBig"
+                style={{
+                  fontSize: getWhoFontClamp(currentCard?.value ?? ""),
+                  maxWidth: "min(86vw, 640px)",
+                  lineHeight: 1.05,
+                  letterSpacing: "0.2px",
+                  padding: "8px 10px",
+                  textAlign: "center",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {currentCard?.value ?? ""}
+              </div>
+            )}
+
+            {toast ? <div className="whoToast">{toast}</div> : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 }
