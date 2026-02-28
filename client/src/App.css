@@ -270,8 +270,8 @@ body{
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 /* Score compacto */
@@ -358,6 +358,7 @@ body{
   font-weight: 800;
 }
 
+
 .itemsList{
   display: flex;
   flex-direction: column;
@@ -390,7 +391,12 @@ body{
 .itemBtn.done{ opacity: .70; }
 
 .tick{ font-size: 16px; }
-.itemText{ font-size: 16px; }
+.itemText{
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* DOCK */
 .actionDock{
@@ -2349,10 +2355,42 @@ body{
   font-size: 12px;
 }
 
+/* ===== Botão gradiente (igual à imagem 1) ===== */
+.btnGhost.btnNamesGradient{
+  border: 0;
+  border-radius: 999px;
+  min-height: 58px;
+  padding: 14px 16px;
+
+  color: rgba(10, 12, 18, 0.95);
+  font-weight: 900;
+
+  background: linear-gradient(
+    90deg,
+    rgba(126, 92, 255, 0.92) 0%,
+    rgba(92, 170, 255, 0.88) 45%,
+    rgba(60, 220, 190, 0.86) 100%
+  );
+
+  box-shadow:
+    0 16px 50px rgba(0,0,0,0.40),
+    0 0 0 1px rgba(255,255,255,0.10) inset,
+    0 0 22px rgba(120,120,255,0.16),
+    0 0 20px rgba(60,220,190,0.12);
+}
+
+.btnGhost.btnNamesGradient:active{
+  transform: scale(0.99);
+}
+
+
+   
 
 
 
-   /
+
+
+
 
 
 
@@ -2672,3 +2710,973 @@ body{
     padding-right: 10px;
   }
 }
+
+
+
+
+
+/*30s*/
+
+
+@media (max-width: 520px){
+  /* mais espaço vertical real no iPhone */
+  .appBg{
+    min-height: 100dvh;
+    padding: 12px 10px;
+  }
+
+  /* header mais compacto */
+  .gameHeader{
+    padding: 10px 10px;
+    gap: 8px;
+  }
+
+  .timerPill{
+    padding: 8px 10px;
+  }
+
+  /* score mais compacto */
+  .scoreBox{
+    padding: 8px 9px;
+  }
+  .scoreNum{
+    font-size: 22px;
+  }
+
+  /* carta: menos padding -> mais espaço para itens */
+  .card{
+    padding: 10px;
+  }
+
+  /* itens: mantém altura consistente e confortável */
+  .itemBtn{
+    min-height: 46px;
+    padding: 10px 12px;
+  }
+
+  /* dock: ligeiramente mais compacto */
+  .actionDock{
+    gap: 7px;
+  }
+}
+
+.itemBtn { min-width: 0; }
+.itemText{
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Telefones com altura pequena (SE / Android pequeno) */
+@media (max-height: 700px){
+  .gameHeader{ padding: 10px 10px; }
+  .timerPill{ padding: 8px 10px; }
+
+  .scoreBox{ padding: 8px 9px; }
+  .scoreNum{ font-size: 22px; }
+
+  .turnRow{ padding: 0; }
+
+  .card{ padding: 10px; }
+  .cardTop{ margin-bottom: 8px; }
+
+  .itemsList{ gap: 8px; padding: 10px; }
+
+  .itemBtn{
+    min-height: 44px;      /* desce um pouco */
+    padding: 10px 12px;
+  }
+
+  .itemText{ font-size: 15px; }
+}
+
+/* Pior caso mesmo: altura MUITO pequena */
+@media (max-height: 620px){
+  .itemBtn{ min-height: 40px; padding: 9px 11px; }
+  .itemText{ font-size: 14px; }
+  .tick{ font-size: 15px; }
+  .actionDock{ gap: 7px; }
+}
+
+
+
+
+
+//* ===========================
+   COFRE — UI (Modo B)
+   - Tela Guardião (privada)
+   - Tela Mesa (pública)
+   - Regra sempre visível ao Guardião (blur + hold)
+   =========================== */
+
+.cofre-root {
+  position: relative;
+  z-index: 9999;
+  isolation: isolate;
+  width: 100%;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
+    "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.cofre-root,
+.cofre-root * {
+  box-sizing: border-box;
+  color: #e9eefc;
+}
+
+.cofre-screen {
+  width: 100%;
+  height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(1200px 800px at 50% 30%, #121826 0%, #070a12 60%, #05070d 100%);
+  overflow: hidden;
+}
+
+/* Header */
+.cofre-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.cofre-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.cofre-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  font-size: 18px;
+}
+
+.cofre-name {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+}
+
+.cofre-subtitle {
+  font-size: 12px;
+  opacity: 0.78;
+  margin-top: 2px;
+}
+
+.cofre-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cofre-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 9px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* Main */
+.cofre-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 16px 14px 18px;
+  overflow: hidden;
+}
+
+/* ===========
+   Guardião
+   =========== */
+.cofre-guardian {
+  width: min(680px, 100%);
+  display: grid;
+  place-items: center;
+}
+
+.cofre-guardian-card {
+  width: min(560px, 100%);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+}
+
+.cofre-guardian-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cofre-guardian-role {
+  font-weight: 950;
+  letter-spacing: 0.4px;
+}
+
+.cofre-guardian-note {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.cofre-ruleBox {
+  border-radius: 16px;
+  border: 1px solid rgba(120, 255, 180, 0.22);
+  background: linear-gradient(180deg, rgba(120, 255, 180, 0.10) 0%, rgba(0, 0, 0, 0.12) 80%);
+  padding: 14px;
+  margin: 10px 0 14px;
+}
+
+.cofre-ruleLabel {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  opacity: 0.78;
+}
+
+.cofre-ruleValue {
+  margin-top: 10px;
+  font-weight: 950;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.blurred {
+  filter: blur(10px);
+  user-select: none;
+}
+
+.cofre-holdRow {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cofre-holdBtn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 9px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.cofre-holdBtn.small {
+  padding: 8px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
+.cofre-holdHint {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.cofre-full {
+  width: 100%;
+  justify-content: center;
+}
+
+.cofre-guardian-minihelp {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.78;
+  line-height: 1.35;
+}
+
+/* ===========
+   Mesa
+   =========== */
+.cofre-vault {
+  width: min(680px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Bar do guardião (na mesa) */
+.cofre-guardianBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.cofre-guardianBarLeft {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cofre-guardianTag {
+  font-weight: 950;
+  font-size: 12px;
+  opacity: 0.90;
+  white-space: nowrap;
+}
+
+.cofre-guardianRule {
+  font-size: 12px;
+  opacity: 0.90;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 420px;
+}
+
+/* Winner */
+.cofre-winner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(120, 255, 180, 0.22);
+  background: rgba(120, 255, 180, 0.08);
+}
+
+.cofre-winnerText {
+  font-weight: 950;
+}
+
+/* Display + actions */
+.cofre-vault-top {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.cofre-display {
+  flex: 1;
+  border-radius: 16px;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(120, 255, 180, 0.26);
+  background: linear-gradient(180deg, rgba(120, 255, 180, 0.10) 0%, rgba(0, 0, 0, 0.12) 80%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.40);
+}
+
+.cofre-display-label {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  opacity: 0.75;
+}
+
+.cofre-display-value {
+  margin-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 18px;
+  line-height: 1.2;
+  min-height: 24px;
+}
+
+.cofre-dim {
+  opacity: 0.60;
+}
+
+.cofre-actions {
+  display: flex;
+  align-items: stretch;
+}
+
+.cofre-primary {
+  border: 1px solid rgba(120, 255, 180, 0.34);
+  background: rgba(120, 255, 180, 0.14);
+  padding: 12px 14px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+/* Form */
+.cofre-form {
+  display: flex;
+  gap: 10px;
+}
+
+.cofre-input {
+  flex: 1;
+  border-radius: 14px;
+  padding: 12px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  outline: none;
+  font-size: 15px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.cofre-input::placeholder {
+  color: rgba(233, 238, 252, 0.58);
+}
+
+.cofre-submit {
+  border-radius: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font-weight: 950;
+}
+
+/* Pendente (palavra) */
+.cofre-pendingWrap {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+}
+
+.cofre-pendingTitle {
+  font-weight: 950;
+  margin-bottom: 8px;
+}
+
+.cofre-pendingEmpty {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.cofre-pendingCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.10);
+}
+
+.cofre-pendingWord {
+  font-weight: 950;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+
+.cofre-pendingWord.big {
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.cofre-pendingBtns {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cofre-judge {
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 950;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cofre-judge.ok {
+  border-color: rgba(120, 255, 180, 0.28);
+  background: rgba(120, 255, 180, 0.10);
+}
+
+.cofre-judge.no {
+  border-color: rgba(255, 120, 120, 0.28);
+  background: rgba(255, 120, 120, 0.10);
+}
+
+/* Lista */
+.cofre-list {
+  flex: 1;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+
+.cofre-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.cofre-list-title {
+  font-weight: 950;
+}
+
+.cofre-list-meta {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.cofre-empty {
+  padding: 18px 14px;
+  opacity: 0.92;
+}
+
+.cofre-empty-title {
+  font-weight: 950;
+}
+
+.cofre-empty-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  opacity: 0.82;
+  line-height: 1.35;
+}
+
+.cofre-attempts {
+  list-style: none;
+  margin: 0;
+  padding: 10px 10px 12px;
+  overflow: auto;
+  flex: 1;
+}
+
+.cofre-attempt {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.10);
+  margin-bottom: 10px;
+}
+
+.cofre-attempt.ok {
+  border-color: rgba(120, 255, 180, 0.28);
+  background: rgba(120, 255, 180, 0.08);
+}
+
+.cofre-attempt.no {
+  border-color: rgba(255, 120, 120, 0.26);
+  background: rgba(255, 120, 120, 0.08);
+}
+
+.cofre-word {
+  font-weight: 950;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cofre-result {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Modal */
+.cofre-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.68);
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  z-index: 10000;
+}
+
+.cofre-modal {
+  width: min(560px, 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 16, 26, 0.94);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.60);
+  overflow: hidden;
+}
+
+.cofre-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.cofre-modal-title {
+  font-weight: 950;
+}
+
+.cofre-x {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 950;
+}
+
+.cofre-modal-body {
+  padding: 14px;
+}
+
+.cofre-hint {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  opacity: 0.90;
+  line-height: 1.35;
+}
+
+.cofre-guess-form {
+  display: flex;
+  gap: 10px;
+}
+
+.cofre-feedback {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.cofre-feedback.no {
+  border-color: rgba(255, 120, 120, 0.28);
+  background: rgba(255, 120, 120, 0.10);
+}
+
+.cofre-note {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.78;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cofre-note-dot {
+  opacity: 0.85;
+}
+
+/* Mobile */
+@media (max-width: 420px) {
+  .cofre-vault-top {
+    flex-direction: column;
+  }
+  .cofre-actions {
+    width: 100%;
+  }
+  .cofre-primary {
+    width: 100%;
+  }
+  .cofre-guardianRule {
+    max-width: 240px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   X-BOLA — layout sem scroll, board 1:1 centrado e gigante
+   Seletores: apenas .xbola- (e wrappers do X-BOLA)
+========================================================= */
+
+/* ---------- Wrappers / App shell (só X-BOLA) ---------- */
+.xbola-bg{
+  overflow: hidden;
+}
+
+.xbola-shell{
+  min-height: 100dvh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+
+  /* respeita safe-area (principalmente iPhone) */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* O panel do X-BOLA funciona como “app column” */
+.xbola-panel{
+  position: relative;          /* necessário para overlays absolutos */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bloco de texto/hints: não rouba espaço */
+.xbola-hintBlock{
+  margin-top: 0;
+}
+
+/* ---------- Stage: ocupa o espaço restante e centra o board ---------- */
+.xbola-stage{
+  flex: 1 1 auto;              /* OBRIGATÓRIO: cresce */
+  min-height: 0;
+  display: grid;
+  place-items: center;         /* PERFEITAMENTE centrado */
+  padding: 0;
+}
+
+/* ---------- Board / Grid (3x3) ---------- */
+.xbola-board{
+  width: 100%;
+  overflow: hidden;            /* mantém overlay/linha dentro */
+}
+
+/*
+  Tamanho do tabuleiro:
+  size = min( width disponível, altura disponível (dvh - reservas - safe areas), max desktop )
+  Sem reservas gigantes: reserva adaptativa via clamp + ajustes por altura.
+*/
+.xbola-grid{
+  position: relative;
+
+  /* reserva adaptativa para: header + títulos/textos + espaçamentos + footer/botão */
+  --xbola-ui-reserve: clamp(170px, 26dvh, 250px);
+
+  /* espaço vertical REAL disponível (com safe-areas) */
+  --xbola-max-h: calc(
+    100dvh
+    - env(safe-area-inset-top)
+    - env(safe-area-inset-bottom)
+    - var(--xbola-ui-reserve)
+  );
+
+  /* tamanho final do quadrado */
+  width: min(94vw, var(--xbola-max-h), 760px);
+  aspect-ratio: 1 / 1;
+
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: clamp(6px, 1.6vw, 10px);
+  padding: clamp(6px, 1.6vw, 10px);
+
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: var(--panel2);
+  overflow: hidden;
+}
+
+/* Ajustes automáticos em ecrãs baixos (evita scroll) */
+@media (max-height: 720px){
+  .xbola-grid{ --xbola-ui-reserve: clamp(190px, 30dvh, 270px); }
+}
+@media (max-height: 640px){
+  .xbola-grid{ --xbola-ui-reserve: clamp(210px, 34dvh, 300px); }
+}
+
+/* ---------- Células ---------- */
+.xbola-cell{
+  width: 100%;
+  aspect-ratio: 1 / 1;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  transition: transform .10s ease, background .12s ease, border-color .12s ease;
+}
+
+.xbola-cell:hover{
+  border-color: rgba(123,92,255,.35);
+  background: rgba(255,255,255,.06);
+}
+
+.xbola-cell:active{
+  transform: scale(.98);
+}
+
+/* ---------- Marcas (X / O) ---------- */
+.xbola-mark{
+  font-weight: 950;
+  letter-spacing: .6px;
+
+  /* responsivo e “grande” sem rebentar o layout */
+  font-size: clamp(48px, 13.5vw, 110px);
+  line-height: 1;
+  transform: translateZ(0);
+}
+
+.xbola-mark.is-x{ color: var(--xColor); }
+.xbola-mark.is-o{ color: var(--oColor); }
+
+/* animações */
+.xbola-cell.is-pop .xbola-mark{ animation: xbola-pop 160ms ease-out; }
+@keyframes xbola-pop{
+  from{ transform: scale(.78); opacity: .35; }
+  to{ transform: scale(1); opacity: 1; }
+}
+
+.xbola-cell.is-fade .xbola-mark{ animation: xbola-fade 180ms ease-in; }
+@keyframes xbola-fade{
+  from{ opacity: 1; transform: scale(1); }
+  to{ opacity: 0; transform: scale(.92); }
+}
+
+/* ---------- Linha de vitória (SVG por cima do grid) ---------- */
+.xbola-winSvg{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.xbola-winLine{
+  stroke: rgba(255,255,255,.92);
+  stroke-width: 0.08;          /* unidades do viewBox (0..3) */
+  stroke-linecap: round;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,.55));
+  animation: xbola-lineIn 180ms ease-out;
+}
+
+@keyframes xbola-lineIn{
+  from{ opacity: 0; transform: scale(.98); }
+  to{ opacity: 1; transform: scale(1); }
+}
+
+/* ---------- Overlay de vitória (se existir) ---------- */
+.xbola-winOverlay{
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+
+  display: grid;
+  place-items: center;
+
+  padding: 14px;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.xbola-winCard{
+  width: min(520px, 100%);
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.35);
+  box-shadow: 0 18px 60px rgba(0,0,0,.55);
+  padding: 16px;
+  text-align: center;
+}
+
+.xbola-winTitle{
+  font-weight: 950;
+  font-size: 20px;
+  letter-spacing: .2px;
+}
+
+.xbola-winSub{
+  margin-top: 6px;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.xbola-winBtn{
+  margin-top: 14px;
+  text-align: center;
+}
+
+/* ---------- Footer / botão menu ---------- */
+.xbola-footer{
+  flex: 0 0 auto;              /* OBRIGATÓRIO: não cresce */
+  margin-top: auto;
+  padding-top: 10px;
+  padding-bottom: max(2px, env(safe-area-inset-bottom));
+}
+
+.xbola-menuBtn{
+  width: 100%;
+  text-align: center;
+
+  font-size: 16px;
+  padding: 16px 14px;
+  border-radius: 18px;
+
+  border: 1px solid rgba(123,92,255,.45);
+  background:
+    radial-gradient(700px 160px at 50% -40%, rgba(123,92,255,.25), transparent 60%),
+    rgba(255,255,255,.06);
+
+  box-shadow: 0 14px 40px rgba(123,92,255,.22);
+}
+
+@media (max-height: 640px){
+  .xbola-menuBtn{ padding: 14px 14px; }
+}
+/* garante que o tabuleiro fica centrado dentro do espaço disponível */
+.xbola-board{
+  width: 100%;
+  display: grid;
+  place-items: center; /* centra horizontal e verticalmente o conteúdo (o .xbola-grid) */
+}
+
+/* redundância útil: se o board mudar no futuro, o grid continua centrado */
+.xbola-grid{
+  justify-self: center;
+  margin-inline: auto;
+}
+
+/*========================================================= */
+/*========================================================= *//*========================================================= */
+b

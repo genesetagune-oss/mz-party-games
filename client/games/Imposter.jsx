@@ -273,7 +273,7 @@ export default function Imposter({ onBack }) {
   const [playerCount, setPlayerCount] = useState(6);
   const enableDoctor = true; // ✅ médico sempre presente
   const [namesOpen, setNamesOpen] = useState(false); // ✅ overlay dos nomes
-  const [useNames, setUseNames] = useState(true);
+  const useNames = true; // sempre, mas nomes são opcionais (fallback já existe)
   const [names, setNames] = useState(() => Array.from({ length: 10 }, (_, i) => `Jogador ${i + 1}`));
 
   // debate fixo 3 min
@@ -560,19 +560,32 @@ useEffect(() => {
   <div className="turnText">Jogadores</div>
   <div className="dock2" style={{ width: 210 }}>
     <button
-      className="btnGhost"
-      type="button"
-      onClick={() => setPlayerCount((n) => clamp(n - 1, 4, 10))}
-    >
-      −
-    </button>
-    <button
-      className="btnGhost"
-      type="button"
-      onClick={() => setPlayerCount((n) => clamp(n + 1, 4, 10))}
-    >
-      +
-    </button>
+  className="btnGhost"
+  type="button"
+  onClick={() => setPlayerCount((n) => clamp(n - 1, 4, 10))}
+  style={{
+    borderColor: "rgba(255,90,90,.35)",
+    boxShadow: "0 0 0 3px rgba(255,90,90,.10), 0 0 18px rgba(255,90,90,.18)",
+  }}
+  aria-label="Diminuir jogadores"
+  title="Diminuir jogadores"
+>
+  −
+</button>
+
+<button
+  className="btnGhost"
+  type="button"
+  onClick={() => setPlayerCount((n) => clamp(n + 1, 4, 10))}
+  style={{
+    borderColor: "rgba(0,255,170,.35)",
+    boxShadow: "0 0 0 3px rgba(0,255,170,.10), 0 0 18px rgba(0,255,170,.18)",
+  }}
+  aria-label="Aumentar jogadores"
+  title="Aumentar jogadores"
+>
+  +
+</button>
   </div>
 </div>
 
@@ -582,29 +595,22 @@ useEffect(() => {
           <div className="turnRow" style={{ padding: "8px 2px 0" }}>
   <div className="turnText">Nomes</div>
 
-  <div className="dock2" style={{ width: 240 }}>
-    <button
-      className="btnGhost"
-      type="button"
-      onClick={() => {
-  setUseNames(true);
-  setNames(namesDraftRef.current.slice(0, playerCount));
-  setNamesOpen(true);
-}}
-      style={{ borderColor: "rgba(0,255,170,.28)" }}
-    >
-      Adicionar (opcional)
-    </button>
-
-    <button
-      className="btnGhost"
-      type="button"
-      onClick={() => setUseNames(false)}
-      style={!useNames ? { borderColor: "rgba(0,255,170,.28)" } : null}
-    >
-      Sem nomes
-    </button>
-  </div>
+  <div style={{ marginTop: 8 }}>
+  <button
+    className="btnGhost"
+    type="button"
+    onClick={() => setNamesOpen(true)}
+    style={{
+      width: "100%",
+      borderColor: "rgba(0,255,170,.28)",
+      padding: "16px 18px",
+      fontSize: 15,
+      fontWeight: 900,
+    }}
+  >
+    Adicionar nomes (opcional)
+  </button>
+</div>
 </div>
           <div className="footNote" style={{ marginTop: 6 }}>
             Total: <b>{playerCount}</b>
@@ -719,9 +725,9 @@ useEffect(() => {
           className="btnPrimary"
           type="button"
           onClick={() => {
-            setUseNames(true);
-            setNamesOpen(false);
-          }}
+  setNames(namesDraftRef.current.slice(0, playerCount)); // ✅ guarda no state
+  setNamesOpen(false);
+}}
         >
           Guardar
         </button>

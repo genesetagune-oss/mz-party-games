@@ -17,31 +17,41 @@ const MAX_NAMES = 6;
 // ITENS
 // =====================
 export const ITEMS_GLOBAL = [
-  "Michael Jackson","Elvis Presley","Madonna","The Beatles","Bob Marley",
-  "Beyoncé","Rihanna","Taylor Swift","Drake","Eminem",
+  "Michael Jackson","Elvis Presley","Madonna","The Beatles","Bob Marley","YHWH",
+  "Beyoncé","Rihanna","Taylor Swift","Drake","Kendick Lamar","Eminem","Getsemani",
   "Tupac Shakur","Jay-Z","Kanye West","Adele","Bruno Mars",
   "Lady Gaga","Justin Bieber","The Weeknd","Sia","Shakira",
   "Bad Bunny","Karol G","Ed Sheeran","Billie Eilish","Coldplay",
-  "U2","Queen","Freddie Mercury","ABBA","Celine Dion",
+  "U2","Queen","Freddie Mercury","ABBA","Celine Dion","Chris brown",
+ "Maluma","J Balvin","Anitta","Ozuna","Daddy Issues","Pitbull rapper",
+ "Nicki Minaj","Cardi B","Miley Cyrus","Selena Gomez","Ariana Grande","Halsey","Tory lanez",
+ "Lana Del Rey","Maroon 5","Linkin Park","Red Hot Chili Peppers","Foo Fighters","Metallica",
+
 
   "Cristiano Ronaldo","Lionel Messi","Pelé","Diego Maradona","Usain Bolt",
-  "Michael Jordan","LeBron James","Serena Williams","Muhammad Ali","Mike Tyson",
-  "Neymar","Kylian Mbappé","Zinedine Zidane","Ronaldinho","Ronaldo Fenómeno",
-  "Lewis Hamilton","Max Verstappen","Ayrton Senna","Roger Federer","Rafael Nadal",
-  "Novak Djokovic","Simone Biles","Tiger Woods","Tom Brady","Kobe Bryant",
+  "Michael Jordan","LeBron James","Serena Williams","Muhammad Ali","Mike Tyson","Jon Jones",
+  "Neymar","Kylian Mbappé","Zinedine Zidane","Ronaldinho","Ronaldo Fenómeno","Israel Adesanya","Alex pereira",
+  "Lewis Hamilton","Max Verstappen","Ayrton Senna","Roger Federer","Rafael Nadal","Conor McGregor",
+  "Novak Djokovic","Simone Biles","Tiger Woods","Tom Brady","Kobe Bryant","Erling Haaland",
+  "Kevin De Bruyne","Virgil van Dijk","Antoine Griezmann","Harry Kane","Sergio Ramos",
+  "David Beckham","Wayne Rooney","Paul Pogba","Gareth Bale","Thierry Henry","Didier Drogba","Kaká","Roberto Carlos",
+ 
 
   "Nelson Mandela","Barack Obama","Martin Luther King Jr.","Che Guevara",
   "Napoleão Bonaparte","Cleópatra","Júlio César","Alexandre o Grande",
   "Gengis Khan","Winston Churchill","Franklin D. Roosevelt","Mahatma Gandhi",
   "Abraham Lincoln","Angela Merkel","Rainha Elizabeth II",
 
-  "Harry Potter","Senhor dos Anéis","Star Wars","Matrix","Titanic",
-  "Avatar","Jurassic Park","Vingadores","Homem-Aranha","Batman",
+  "Star Wars","Matrix","Titanic",
+  "Avatar","Jurassic Park","Vingadores end-game","Homem-Aranha 2","Batman",
   "Superman","Pantera Negra","Toy Story","Rei Leão","Frozen",
   "Velozes e Furiosos","Missão Impossível","Homem de Ferro",
   "Capitão América","Thor","Hulk","Mulher-Maravilha",
   "Joker","Deadpool","James Bond","Indiana Jones","Piratas das Caraíbas",
-  "Shrek","Minions","Stranger Things",
+  "Shrek","Minions","Stranger Things","Crepúsculo","Jogos Vorazes","Divergente",
+  "Avatar 2","O Senhor das Armas","O Aviador","O Náufrago","Coringa","Duna","Blade Runner"
+  ,"Clube dos Cinco","Curtindo a Vida Adoidado","Efeito Borboleta","Ilha do Medo",
+  "O Pianista","A Vida é Bela","O Grande Truque","Cães de Aluguel","Os Infiltrados",
 
   "Netflix","YouTube","Instagram","TikTok","WhatsApp",
   "Google","Facebook","Spotify","Amazon","Apple",
@@ -77,7 +87,27 @@ export const ITEMS_GLOBAL = [
   "Tapete Vermelho","Estrela de Cinema","Cantor","Atriz","Ator",
   "Leonardo da Vinci","Mona Lisa","William Shakespeare","Romeu e Julieta",
   "Pablo Picasso","Vincent van Gogh","A Noite Estrelada","A Última Ceia","Escultura",
-  "Livro","Biblioteca","Jornal","Notícia"
+  "Livro","Biblioteca","Jornal","Notícia",
+
+  "Vaticano","Casa Branca","Pentágono","Wall Street","Vale do Silício","Las Vegas","Cancún","Ibiza","Mykonos"
+  ,"Mônaco","Las Ramblas","Porto de Santos","Canal do Panamá","Canal de Suez","Deserto do Saara",
+  "Floresta Amazónica","Triângulo das Bermudas","Ilhas Maldivas","Monte Fuji","Grand Canyon",
+
+  "Black Friday","Cyber Monday","Super Bowl ","Eurovisão","Rock in Rio","Coachella","Tomorrowland",
+  "Met Gala","Fashion Week","Tapete Vermelho","Oscar de Melhor Filme","Bola de Ouro","Prêmio Nobel",
+  "Grammy Latino","Billboard Hot 100","Forbes","Guinness Book","Miss Universo","Reality Show","Big Brother",
+
+
+  "Charles Chaplin","Al Pacino","Anthony Hopkins","Robert De Niro","Clint Eastwood","Morgan Freeman","Heath Ledger","Joaquin Phoenix","Keanu Reeves","Harrison Ford",
+"Alfred Hitchcock","Quentin Tarantino","Steven Spielberg","Martin Scorsese","Christopher Nolan","Stanley Kubrick","James Cameron","Tim Burton","Ridley Scott","Francis Ford Coppola",
+"Margaret Thatcher","Napoleão III","Otto von Bismarck","Nicolau II","Augusto Pinochet","Mikhail Gorbachev","Kim Jong-un","Xi Jinping","Emmanuel Macron","Volodymyr Zelensky",
+"Usain Bolt 2008","Milagre de Istambul","Mão de Deus","Zidane 2006","7 a 1 Brasil Alemanha","Dream Team 1992","Tyson Holyfield","Rumble in the Jungle","Final NBA 2016",
+"Woodstock","Chernobyl","Queda do Muro de Berlim","Revolução Francesa","Crise de 2008","Pandemia Covid-19","Ataques de 11 de Setembro","Primavera Árabe","Guerra Fria","Corrida Espacial",
+
+"Orson Welles","Marlon Brando","Jack Nicholson","Daniel Day-Lewis","Denzel Washington","Gary Oldman","Christian Bale","Brad Pitt","Leonardo DiCaprio","Tom Hanks",
+"Taxi Driver","Laranja Mecânica","2001: Odisseia no Espaço","Apocalypse Now","O Iluminado","Os Bons Companheiros","Scarface","Donnie Brasco","O Resgate do Soldado Ryan","O Silêncio dos Inocentes",
+"Watergate","Caso Snowden","WikiLeaks","Panama Papers","Plano Marshall","Tratado de Versalhes","Queda da Bolsa de 1929","Guerra do Vietname",
+"Michael Jackson ","Beatles Abbey Road","Woodstock 1969","Live Aid","MTV anos 90","Britney Spears","Amy Winehouse","Nirvana Unplugged","Freddie Mercury",
 ];
 
 export const ITEMS_MZ = [
