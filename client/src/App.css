@@ -3679,4 +3679,23 @@ body{
 
 /*========================================================= */
 /*========================================================= *//*========================================================= */
-b
+/* --- MOBILE FIX: evita overflow e “puxar para direita” --- */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Se tiveres wrappers principais (muito provável no teu layout) */
+.appBg, .shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
