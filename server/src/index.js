@@ -211,7 +211,7 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
 const CLIENT_DIST = path.join(__dirname, "../../client/dist");
 if (existsSync(CLIENT_DIST)) {
   app.use(express.static(CLIENT_DIST));
-  app.get("*", (_, res) => res.sendFile(path.join(CLIENT_DIST, "index.html")));
+  app.get(/.*/, (_, res) => res.sendFile(path.join(CLIENT_DIST, "index.html")));
 }
 
 const PORT = process.env.PORT || 3001;
