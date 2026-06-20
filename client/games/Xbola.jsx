@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import "../src/App.css";
+
 
 const WIN_LINES = [
   [0, 1, 2],
@@ -159,13 +159,13 @@ export default function XBola({ onBack }) {
     if (winner === "X") {
       setWinsX((prev) => {
         const next = prev + 1;
-        if (next >= 2) setDuelWinner("X");
+        if (next >= 3) setDuelWinner("X");
         return next;
       });
     } else {
       setWinsO((prev) => {
         const next = prev + 1;
-        if (next >= 2) setDuelWinner("O");
+        if (next >= 3) setDuelWinner("O");
         return next;
       });
     }
@@ -278,83 +278,67 @@ export default function XBola({ onBack }) {
   };
 
   return (
-    <div
-      className="imposterBg xbola-bg"
-      style={{
-        ["--xColor"]: colors.x,
-        ["--oColor"]: colors.o,
-      }}
-    >
-      <div className="shell xbola-shell">
-        <div className="imposterTop">
-          <div>
-            <div className="muted">
-              {headerStatus} • Placar: X {winsX} — {winsO} O • Jogo {Math.min(round, 3)}
-            </div>
-            <div className="bigName">X-Bola Infinito</div>
-          </div>
-
-          
-        </div>
-
-        <div className="imposterPanel xbola-panel">
-          <div className="block xbola-hintBlock">
-            <div className="muted">
-              Cada jogador só pode ter 3 marcas. Ao jogar a 4ª, a mais antiga desaparece.
-            </div>
-          </div>
-
-          <div className="xbola-stage">
-            <div className="xbola-board" aria-label="Tabuleiro">
-              <div className="xbola-grid" role="grid" aria-label="Tabuleiro 3 por 3">
-                {Array.from({ length: 9 }, (_, i) => renderCell(i))}
-                {renderWinOverlay()}
-              </div>
-            </div>
-          </div>
-         {duelWinner && (
-  <div className="xbola-winOverlay" role="dialog" aria-live="polite">
-    <div className="xbola-winCard">
-      <div className="xbola-winTitle">
-        {duelWinner === "X" ? "Jogador 1 venceu 🏆" : "Jogador 2 venceu 🏆"}
-      </div>
-      <div className="xbola-winSub">
-        Placar final: X {winsX} — {winsO} O
-      </div>
-
-      <button className="pickBtn xbola-winBtn" type="button" onClick={resetDuel}>
-        Reiniciar
-      </button>
-    </div>
-  </div>
-)}
-{duelWinner && (
-  <div className="xbola-winOverlay" role="dialog" aria-live="polite">
-    <div className="xbola-winCard">
-      <div className="xbola-winTitle">
-        {duelWinner === "X" ? "Jogador 1 venceu 🏆" : "Jogador 2 venceu 🏆"}
-      </div>
-      <div className="xbola-winSub">
-        Placar final: X {winsX} — {winsO} O
-      </div>
-
-      <button className="pickBtn xbola-winBtn" type="button" onClick={resetDuel}>
-        Reiniciar
-      </button>
-    </div>
-  </div>
-)}
-        <div className="xbola-footer">
-  <button
-    className="pickBtn xbola-menuBtn"
-    type="button"
-    onClick={() => (onBack ? onBack() : null)}
+  <div
+    className="appBg xbola-bg"
+    style={{
+      ["--xColor"]: colors.x,
+      ["--oColor"]: colors.o,
+    }}
   >
-    Voltar ao menu
-  </button>
-</div>
+    <div className="shell xbola-shell">
+      <div className="imposterTop">
+        <div>
+          <div className="muted">
+            {headerStatus} • Placar: X {winsX} — {winsO} O • Jogo {Math.min(round, 5)}
+          </div>
+          <div className="bigName">X-Bola Infinito</div>
+        </div>
+      </div>
+
+      <div className="imposterPanel xbola-panel">
+        <div className="block xbola-hintBlock">
+          <div className="muted">
+            Cada jogador só pode ter 3 marcas. Ao jogar a 4ª, a mais antiga desaparece.
+          </div>
+        </div>
+
+        <div className="xbola-stage">
+          <div className="xbola-board" aria-label="Tabuleiro">
+            <div className="xbola-grid" role="grid" aria-label="Tabuleiro 3 por 3">
+              {Array.from({ length: 9 }, (_, i) => renderCell(i))}
+              {renderWinOverlay()}
+            </div>
+          </div>
+        </div>
+
+        {duelWinner && (
+          <div className="xbola-winOverlay" role="dialog" aria-live="polite">
+            <div className="xbola-winCard">
+              <div className="xbola-winTitle">
+                {duelWinner === "X" ? "Jogador 1 venceu 🏆" : "Jogador 2 venceu 🏆"}
+              </div>
+              <div className="xbola-winSub">
+                Placar final: X {winsX} — {winsO} O
+              </div>
+
+              <button className="pickBtn xbola-winBtn" type="button" onClick={resetDuel}>
+                Reiniciar
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="xbola-footer">
+          <button
+            className="pickBtn xbola-menuBtn"
+            type="button"
+            onClick={() => (onBack ? onBack() : null)}
+          >
+            Voltar ao menu
+          </button>
         </div>
       </div>
     </div>
-  );
+  </div>
+);;
 }

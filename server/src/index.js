@@ -1,9 +1,14 @@
 import express from "express";
 import http from "http";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import { existsSync } from "fs";
 import { Server } from "socket.io";
 import { RoomManager } from "./rooms/roomManager.js";
 import { createEngine } from "./games/index.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 process.on("uncaughtException", (err) => console.error("🔥 uncaughtException:", err));
 process.on("unhandledRejection", (err) => console.error("🔥 unhandledRejection:", err));
@@ -119,6 +124,7 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     result.room.engine?.emitState?.();
 
     io.to(roomCode).emit("room:update", {
+      roomCode,
       room: roomManager.publicRoomState(result.room),
     });
   });
@@ -168,6 +174,7 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     const updated = roomManager.getRoom(code);
     if (updated) {
       io.to(code).emit("room:update", {
+        roomCode: code,
         room: roomManager.publicRoomState(updated),
       });
       updated.engine?.emitState?.();
@@ -192,6 +199,7 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     const updated = roomManager.getRoom(code);
     if (updated) {
       io.to(code).emit("room:update", {
+        roomCode: code,
         room: roomManager.publicRoomState(updated),
       });
       updated.engine?.emitState?.();
@@ -199,7 +207,14 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
   });
 });
 
+// Serve built client (only when dist exists — i.e. production)
+const CLIENT_DIST = path.join(__dirname, "../../client/dist");
+if (existsSync(CLIENT_DIST)) {
+  app.use(express.static(CLIENT_DIST));
+  app.get("*", (_, res) => res.sendFile(path.join(CLIENT_DIST, "index.html")));
+}
+
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 server rodando em http://localhost:${PORT}`);
 });

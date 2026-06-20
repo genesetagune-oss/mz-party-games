@@ -1,7 +1,6 @@
 // client/src/games/XbolaOnline.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { socket } from "../socket";
-import "../App.css";
 
 const CENTER = [
   { x: 0.5, y: 0.5 },
@@ -26,7 +25,6 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
   const winsX = gamePublic?.winsX ?? 0;
   const winsO = gamePublic?.winsO ?? 0;
   const duelWinner = gamePublic?.duelWinner ?? null;
-
   const duelWinsToWin = gamePublic?.duelWinsToWin ?? 3;
 
   const match = gamePublic?.match ?? null;
@@ -44,7 +42,6 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
   const hostSymbol = gamePublic?.hostSymbol ?? null;
   const p2Symbol = gamePublic?.p2Symbol ?? null;
 
-  // ✅ FX locais (igual ao offline)
   const [poppedIdxLocal, setPoppedIdxLocal] = useState(null);
   const [fadedIdxLocal, setFadedIdxLocal] = useState(null);
   const [fadeSymbolLocal, setFadeSymbolLocal] = useState(null);
@@ -80,18 +77,30 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
     socket.emit("game:restart");
   };
 
+  const handleShare = async () => {
+    const text = `🎮 Acabei de jogar MZ Party Games! Vem jogar também → https://mz-party-games.onrender.com`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "MZ Party Games", text }); } catch {}
+    } else {
+      try { await navigator.clipboard.writeText(text); } catch {}
+    }
+  };
+
   const place = (idx) => {
     if (!canAct) return;
     socket.emit("game:command", { type: "PLACE", idx });
   };
 
-  const copyCode = async () => {
+  const shareRoomCode = async () => {
     const code = (roomCode || "").trim();
     if (!code) return;
-    try {
-      await navigator.clipboard.writeText(code);
-    } catch {
-      window.prompt("Copia o código:", code);
+    const url = `https://mz-party-games.onrender.com/?join=${code}`;
+    const text = `🎮 Joga MZ Party Games comigo!\nEntra directo → ${url}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "MZ Party Games", text, url }); return; } catch {}
+    }
+    try { await navigator.clipboard.writeText(url); } catch {
+      window.prompt("Copia o link:", url);
     }
   };
 
@@ -108,6 +117,11 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
     if (p2Symbol && duelWinner === p2Symbol) return "Jogador 2 venceu 🏆";
     return duelWinner === "X" ? "X venceu 🏆" : "O venceu 🏆";
   }, [duelWinner, hostSymbol, p2Symbol]);
+
+  const guestLobbyText = useMemo(() => {
+    if (playerCount < 2) return "Aguardando mais 1 jogador…";
+    return "Aguardando o host iniciar…";
+  }, [playerCount]);
 
   const renderWinOverlay = () => {
     if (!winLine) return null;
@@ -160,22 +174,15 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
     cursor: "pointer",
   });
 
-  // ✅ lobby convidado premium (sem código / sem copiar)
-  const guestLobbyText = useMemo(() => {
-    if (playerCount < 2) return "Aguardando mais 1 jogador…";
-    if (!hostWants) return "Aguardando o host escolher X/O…";
-    return "Aguardando iniciar…";
-  }, [playerCount, hostWants]);
-
   return (
     <div
-      className="appBg"
+      className="appBg xbola-bg"
       style={{
         ["--xColor"]: colors.x,
         ["--oColor"]: colors.o,
       }}
     >
-      <div className="shell shellGame">
+      <div className="shell xbola-shell">
         <header className="gameHeader">
           <button className="btnGhost" onClick={leaveToMenu} type="button">
             ← Menu
@@ -195,10 +202,21 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
             </div>
           </div>
 
-          <div className="timerPill">{phase === "playing" ? (canAct ? "✅ Tua vez" : "⏳ Aguarde") : ""}</div>
+          <div className="timerPill">
+            {phase === "playing" ? (canAct ? "✅ Tua vez" : "⏳ Aguarde") : ""}
+          </div>
         </header>
 
-        <div style={{ display: "flex", gap: 8, padding: "0 14px 14px", flexWrap: "wrap", alignItems: "center" }}>
+        <div
+          className="xbola-hintBlock"
+          style={{
+            display: "flex",
+            gap: 8,
+            padding: "0 14px 14px",
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
           <div style={{ opacity: 0.85 }}>
             {headerStatus} • Placar: <b>X {winsX}</b> — <b>{winsO} O</b>
           </div>
@@ -207,87 +225,95 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
           </div>
         </div>
 
-        <main className="gameMain" style={{ display: "grid", gap: 14 }}>
+        <main className="gameMain">
           <section className="turnRow">
-            <div className="turnText">Cada jogador só pode ter 3 marcas. Ao jogar a 4ª, a mais antiga desaparece.</div>
+            <div className="turnText">
+              Cada jogador só pode ter 3 marcas. Ao jogar a 4ª, a mais antiga desaparece.
+            </div>
             <div className="winRule">Primeiro a {duelWinsToWin}</div>
           </section>
 
-          <section
-            className="card"
-            style={{
-              width: "min(760px, 96vw)",
-              margin: "0 auto",
-              padding: 14,
-              display: "grid",
-              placeItems: "center",
-            }}
-          >
-            <div className="xbola-board" style={{ width: "min(620px, 94vw)" }}>
-              <div className="xbola-grid" role="grid" aria-label="Tabuleiro 3 por 3">
-                {Array.from({ length: 9 }, (_, idx) => {
-                  const v = board[idx];
+          <section className="xbola-panel">
+            <div className="xbola-stage">
+              <div className="xbola-board" aria-label="Tabuleiro">
+                <div className="xbola-grid" role="grid" aria-label="Tabuleiro 3 por 3">
+                  {Array.from({ length: 9 }, (_, idx) => {
+                    const v = board[idx];
+                    const showFade = fadedIdxLocal === idx;
+                    const display = showFade ? fadeSymbolLocal : v;
+                    const isPop = poppedIdxLocal === idx;
+                    const disabled = phase !== "playing" || !canAct || v != null;
 
-                  const showFade = fadedIdxLocal === idx;
-                  const display = showFade ? fadeSymbolLocal : v;
-                  const isPop = poppedIdxLocal === idx;
-
-                  const disabled = phase !== "playing" || !canAct || v != null;
-
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`xbola-cell ${display ? "is-filled" : ""} ${isPop ? "is-pop" : ""} ${
-                        showFade ? "is-fade" : ""
-                      }`}
-                      onClick={() => place(idx)}
-                      disabled={disabled}
-                      aria-label={`célula ${idx + 1}`}
-                    >
-                      <span className={`xbola-mark ${display === "X" ? "is-x" : display === "O" ? "is-o" : ""}`}>
-                        {display ?? ""}
-                      </span>
-                    </button>
-                  );
-                })}
-                {renderWinOverlay()}
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`xbola-cell ${display ? "is-filled" : ""} ${isPop ? "is-pop" : ""} ${
+                          showFade ? "is-fade" : ""
+                        }`}
+                        onClick={() => place(idx)}
+                        disabled={disabled}
+                        aria-label={`célula ${idx + 1}`}
+                      >
+                        <span
+                          className={`xbola-mark ${
+                            display === "X" ? "is-x" : display === "O" ? "is-o" : ""
+                          }`}
+                        >
+                          {display ?? ""}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {renderWinOverlay()}
+                </div>
               </div>
             </div>
           </section>
 
-          {/* LOBBY */}
           {phase === "lobby" ? (
             <div className="cardReadyOverlay" aria-live="polite" style={{ pointerEvents: "auto" }}>
               {isHost ? (
                 <div style={pillBox}>
-                  <div style={{ fontWeight: 950, fontSize: 16 }}>Configurar partida</div>
+                  <div style={{ fontWeight: 950, fontSize: 16 }}>X-Bola</div>
 
                   <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
                     <div style={{ opacity: 0.85, fontSize: 13 }}>
                       Código: <b>{roomCode || "-"}</b>
                     </div>
-                    <button type="button" className="btnPrimary" onClick={copyCode} style={{ padding: "8px 12px" }}>
-                      Copiar
+                    <button
+                      type="button"
+                      className="btnPrimary"
+                      onClick={shareRoomCode}
+                      style={{ padding: "8px 12px" }}
+                    >
+                      Partilhar
                     </button>
                   </div>
 
                   <div style={{ opacity: 0.8, marginTop: 10, fontSize: 13, lineHeight: 1.35 }}>
                     {playerCount < 2
-                      ? "Entra mais 1 jogador para começar."
-                      : "Escolhe se queres ser X ou O. O jogo inicia automaticamente."}
+                      ? "Aguarda mais 1 jogador para começar."
+                      : "Prontos! Clica em Começar."}
                   </div>
 
-                  <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-                    <button type="button" onClick={() => chooseSymbol("X")} style={bigBtn(hostWants === "X")}>
-                      Quero ser X
+                  {playerCount >= 2 && (
+                    <button
+                      type="button"
+                      className="btnPrimary"
+                      onClick={() => socket.emit("game:start")}
+                      style={{ marginTop: 12 }}
+                    >
+                      ▶ Começar
                     </button>
-                    <button type="button" onClick={() => chooseSymbol("O")} style={bigBtn(hostWants === "O")}>
-                      Quero ser O
-                    </button>
-                  </div>
+                  )}
 
-                  <button className="btnGhost" style={{ marginTop: 12 }} onClick={leaveToMenu} type="button">
+                  <button
+                    className="btnGhost"
+                    style={{ marginTop: 12 }}
+                    onClick={leaveToMenu}
+                    type="button"
+                  >
                     ← Menu
                   </button>
                 </div>
@@ -299,7 +325,12 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
                     {guestLobbyText}
                   </div>
 
-                  <button className="btnGhost" style={{ marginTop: 10 }} onClick={leaveToMenu} type="button">
+                  <button
+                    className="btnGhost"
+                    style={{ marginTop: 10 }}
+                    onClick={leaveToMenu}
+                    type="button"
+                  >
                     ← Menu
                   </button>
                 </div>
@@ -307,7 +338,6 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
             </div>
           ) : null}
 
-          {/* FIM DO DUELO */}
           {phase === "finished" && duelWinner ? (
             <div className="cardReadyOverlay" aria-live="polite" style={{ pointerEvents: "auto" }}>
               <div style={pillBox}>
@@ -319,13 +349,32 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
                   Primeiro a chegar a {duelWinsToWin} vitórias
                 </div>
 
+                <button
+                  className="victoryBtn share"
+                  style={{ marginTop: 14, width: "100%" }}
+                  onClick={handleShare}
+                  type="button"
+                >
+                  📲 Partilhar
+                </button>
+
                 {isHost ? (
-                  <button className="btnPrimary" style={{ marginTop: 12 }} onClick={restartDuel} type="button">
+                  <button
+                    className="btnPrimary"
+                    style={{ marginTop: 10 }}
+                    onClick={restartDuel}
+                    type="button"
+                  >
                     🔁 Reiniciar
                   </button>
                 ) : null}
 
-                <button className="btnGhost" style={{ marginTop: 10 }} onClick={leaveToMenu} type="button">
+                <button
+                  className="btnGhost"
+                  style={{ marginTop: 10 }}
+                  onClick={leaveToMenu}
+                  type="button"
+                >
                   ← Menu
                 </button>
               </div>

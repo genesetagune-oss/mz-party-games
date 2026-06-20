@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "../socket";
-import "../App.css";
 
 export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic, gamePrivate }) {
   const me = room?.players?.find((p) => p.id === socket.id) || null;
@@ -27,6 +26,9 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
   const role = gamePrivate?.role ?? "NONE";
   const isExplainer = role === "EXPLAINER";
 
+  const myTeam = gamePrivate?.team ?? null;
+  const teamsCount = gamePublic?.teamsCount ?? { A: 0, B: 0 };
+
   const canAct = !!gamePrivate?.canAct;
   const canUndo = !!gamePrivate?.canUndo;
   const undoCount = gamePrivate?.undoCount ?? 0;
@@ -35,8 +37,11 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
   const items = card?.items ?? null;
   const checked = card?.checked ?? null;
 
+  // ✅ Estado para pop-up suave
+  const [floatingText, setFloatingText] = useState(null);
+
   // =====================
-  // AUDIO (mantém como está)
+  // AUDIO
   // =====================
   const audioRef = useRef(null);
 
@@ -62,35 +67,6 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
     } catch {}
   }
 
-  function beep(freq = 880, ms = 140, vol = 0.18) {
-    try {
-      const ctx = ensureAudio();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = "square";
-      o.frequency.value = freq;
-      g.gain.value = vol;
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.start();
-      setTimeout(() => o.stop(), ms);
-    } catch {}
-  }
-
-  useEffect(() => {
-    const onEvt = (evt) => {
-      const t = evt?.type;
-      if (t === "TURN_STARTED") beep(880, 140, 0.18);
-      if (t === "CORRECT_ITEM") beep(980, 90, 0.18);
-      if (t === "PASS") beep(700, 120, 0.14);
-      if (t === "PASSED_TO_TEAMMATE") beep(360, 180, 0.22);
-      if (t === "TURN_ENDED" && evt?.reason === "TIME_UP") beep(520, 160, 0.2);
-      if (t === "UNDO") beep(420, 110, 0.15);
-    };
-
-    socket.on("game:event", onEvt);
-    return () => socket.off("game:event", onEvt);
-  }, []);
 
   // =====================
   // ACTIONS
@@ -135,14 +111,35 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
     socket.emit("game:command", { type: "END_TURN" });
   };
 
+  // ✅ NOVO: Click com feedback suave
   const clickItem = (index) => {
     warmupAudio();
+
+    // Pop-up suave
+    setFloatingText({
+      text: "✅ +1",
+      x: Math.random() * 200 - 100, // -100 a +100
+      y: Math.random() * 150,
+    });
+    setTimeout(() => setFloatingText(null), 1000);
+
     socket.emit("game:command", { type: "CORRECT_ITEM", index });
   };
+
 
   const restart = () => {
     warmupAudio();
     socket.emit("game:restart");
+  };
+
+  const handleShare = async () => {
+    const url = "https://mz-party-games.onrender.com";
+    const text = `🎮 Acabei de jogar MZ Party Games! Vem jogar também → ${url}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "MZ Party Games", text, url }); } catch {}
+    } else {
+      try { await navigator.clipboard.writeText(url); } catch {}
+    }
   };
 
   const copyCode = async () => {
@@ -155,8 +152,6 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
     }
   };
 
-  const showStart = isHost && phase === "lobby";
-  const canShowLobbyControls = phase === "lobby";
   const showExplainerDock = phase === "playing" && turnPhase === "play" && isExplainer;
 
   const readyTitle = useMemo(() => {
@@ -171,7 +166,6 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
     return `Jogador: ${playerName || "—"}`;
   }, [phase, turnPhase, playerName]);
 
-  // ✅ PILL sempre “bonita” em qualquer ecrã
   const pillStyle = {
     pointerEvents: "auto",
     width: "min(520px, 92vw)",
@@ -180,32 +174,11 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
     borderRadius: 999,
   };
 
-  // ✅ CARTA responsiva premium (mobile-first)
-  // - mantém um tamanho confortável no telemóvel
-  // - não explode no desktop
-  const cardStyle = {
-    width: "min(720px, 94vw)",
-    margin: "0 auto",
-    // altura alvo: ~55% da altura do ecrã, com limites
-    minHeight: "clamp(320px, 55vh, 520px)",
-    maxHeight: "clamp(360px, 62vh, 560px)",
-    display: "flex",
-    flexDirection: "column",
-  };
-
-  // ✅ Itens rolam dentro da carta (nunca estoura layout)
-  const itemsListStyle = {
-    flex: 1,
-    overflowY: "auto",
-    WebkitOverflowScrolling: "touch",
-    paddingBottom: 6,
-  };
-
   return (
     <div className="appBg">
       <div className="shell shellGame">
         <header className="gameHeader">
-          <button className="btnGhost" onClick={leaveToMenu} type="button">
+          <button className="btnBack" onClick={leaveToMenu} type="button">
             ← Menu
           </button>
 
@@ -226,55 +199,8 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
           </div>
         </header>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            padding: "0 14px 14px",
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          {/* ✅ Só host vê */}
-          {isHost ? (
-            <button className="btnSoft" type="button" onClick={copyCode} disabled={!roomCode}>
-              Copiar código
-            </button>
-          ) : null}
-
-          {canShowLobbyControls ? (
-            <>
-              <button
-                className="btnSoft"
-                type="button"
-                onClick={() => setCat("GLOBAL")}
-                disabled={!isHost}
-                style={category === "GLOBAL" ? { outline: "2px solid rgba(255,255,255,0.35)" } : null}
-              >
-                🌍 Global
-              </button>
-
-              <button
-                className="btnSoft"
-                type="button"
-                onClick={() => setCat("MZ")}
-                disabled={!isHost}
-                style={category === "MZ" ? { outline: "2px solid rgba(255,255,255,0.35)" } : null}
-              >
-                🇲🇿 CulturaGeral_MZ
-              </button>
-            </>
-          ) : null}
-
-          {showStart ? (
-            <button className="btnSoft" type="button" onClick={startGame} disabled={!roomCode}>
-              Start Game
-            </button>
-          ) : null}
-
-          <div style={{ opacity: 0.75 }}>
-            Jogadores: <b>{room?.players?.length ?? 0}</b>
-          </div>
+        <div style={{ padding: "0 14px 10px", opacity: 0.7, fontSize: 13 }}>
+          Jogadores: <b>{room?.players?.length ?? 0}</b>
         </div>
 
         <main className="gameMain">
@@ -307,8 +233,7 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
             <div className="winRule">Vitória: {winScore} pts</div>
           </section>
 
-          {/* ✅ CARTA com tamanho responsivo */}
-          <section className={`card ${turnPhase === "ready" ? "isReady" : ""} ${paused ? "paused" : ""}`} style={cardStyle}>
+          <section className={`card ${turnPhase === "ready" ? "isReady" : ""} ${paused ? "paused" : ""}`}>
             <div className="cardTop">
               <div className="cardTitle">Carta</div>
               <div className="cardHint">
@@ -339,16 +264,16 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
                 <div className="readyPill" style={pillStyle}>
                   <div className="readyTitle">Pausado</div>
                   <div className="readyCount" style={{ fontSize: 40, lineHeight: 1.05 }}>
-                    Tempo congelado
+                    ⏸
                   </div>
-                  <div className="readySub">Carrega em Pausa/Retomar para voltar</div>
+                  <div className="readySub">Carrega em Retomar para voltar</div>
                 </div>
               </div>
             ) : null}
 
-            {/* ✅ pausa esconde itens */}
+
             {phase === "playing" && turnPhase === "play" && paused ? null : (
-              <div className="itemsList" style={itemsListStyle}>
+              <div className="itemsList">
                 {items ? (
                   items.map((item, i) => {
                     const done = !!checked?.[i];
@@ -360,8 +285,11 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
                         className={`itemBtn ${done ? "done" : ""}`}
                         type="button"
                       >
-                        <span className="tick">{done ? "✅" : "☐"}</span>
+                        <span className="itemNum">{i + 1}</span>
                         <span className="itemText">{item}</span>
+                        <span className="itemCheck">
+                          <span className="itemCheckCircle">{done ? "✓" : ""}</span>
+                        </span>
                       </button>
                     );
                   })
@@ -374,6 +302,19 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
                       : "O host precisa carregar Start Game."}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ✅ Pop-up feedback suave */}
+            {floatingText && (
+              <div
+                className="floatingPoint correct"
+                style={{
+                  left: `calc(50% + ${floatingText.x}px)`,
+                  top: `${floatingText.y}px`,
+                }}
+              >
+                {floatingText.text}
               </div>
             )}
           </section>
@@ -400,7 +341,7 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
                 </button>
 
                 <button className="btnSoft dockFull" onClick={passToMate} disabled={paused} type="button">
-                  👥 Passar para colega (1x/turno)
+                  👥 Passar para colega
                 </button>
 
                 <div className="dock2">
@@ -413,12 +354,42 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
                   </button>
                 </div>
               </>
+            ) : phase === "lobby" && isHost ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {[["GLOBAL","🌍 Global"], ["MZ","🇲🇿 MZ"]].map(([cat, label]) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className="btnSoft"
+                      onClick={() => setCat(cat)}
+                      style={{
+                        flex: 1,
+                        background: category === cat ? "rgba(99,102,241,.28)" : undefined,
+                        border: category === cat ? "1px solid rgba(99,102,241,.6)" : undefined,
+                        fontWeight: category === cat ? 900 : undefined,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, opacity: 0.55, textAlign: "center" }}>
+                  Tu és Equipa {me?.team ?? "A"} &nbsp;·&nbsp; Equipa A: {teamsCount.A} &nbsp;·&nbsp; Equipa B: {teamsCount.B}
+                </div>
+                <button
+                  type="button"
+                  className="btnPrimary"
+                  onClick={startGame}
+                  disabled={teamsCount.B === 0}
+                >
+                  {teamsCount.B === 0 ? "Aguardando Equipa B…" : "▶ Start Game"}
+                </button>
+              </div>
             ) : (
               <div className="footNoteDock" style={{ opacity: 0.85 }}>
                 {phase === "lobby"
-                  ? isHost
-                    ? "Escolhe categoria e clica Start Game."
-                    : "Aguardando o host começar."
+                  ? myTeam ? `Equipa ${myTeam} — aguardando o host…` : "Aguardando o host começar."
                   : phase === "finished"
                   ? "Partida terminou."
                   : "Aguarde a tua vez."}
@@ -426,22 +397,28 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
             )}
           </footer>
 
+          {/* ✅ OVERLAY VITÓRIA — Premium mas suave */}
           {phase === "finished" && (
-            <div className="cardReadyOverlay" aria-live="polite" style={{ pointerEvents: "auto" }}>
-              <div className="readyPill" style={pillStyle}>
-                <div className="readyTitle">🏆 Vencedor</div>
-                <div className="readyCount">Equipa {winnerTeam}</div>
-                <div className="readySub">Primeiro a chegar a {winScore} pontos</div>
+            <div className="victoryOverlay">
+              <div className="victoryBackdrop" />
+              <div className="victoryCard">
+                <div className="victoryTitle">🏆</div>
+                <div className="victoryTeam">Equipa {winnerTeam}</div>
+                <div className="victorySub">{scores[winnerTeam]} pontos</div>
 
-                {isHost ? (
-                  <button className="btnPrimary" style={{ marginTop: 12 }} onClick={restart} type="button">
-                    🔁 Reiniciar partida
+                <div className="victoryBtns">
+                  <button className="victoryBtn share" onClick={handleShare} type="button">
+                    📲 Partilhar
                   </button>
-                ) : null}
-
-                <button className="btnGhost" style={{ marginTop: 10 }} onClick={leaveToMenu} type="button">
-                  ← Menu
-                </button>
+                  {isHost ? (
+                    <button className="victoryBtn restart" onClick={restart} type="button">
+                      🔁 Reiniciar Partida
+                    </button>
+                  ) : null}
+                  <button className="victoryBtn menu" onClick={leaveToMenu} type="button">
+                    ← Menu
+                  </button>
+                </div>
               </div>
             </div>
           )}

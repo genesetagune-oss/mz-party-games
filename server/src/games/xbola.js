@@ -182,8 +182,7 @@ export class XbolaEngine extends BaseEngine {
     }
 
     if (!this.state.hostWants) {
-      this.emitError(socketId, "CHOOSE_FIRST", "Escolhe X ou O antes de começar.");
-      return;
+      this.state.hostWants = Math.random() < 0.5 ? "X" : "O";
     }
 
     const hostId = this.state.hostId;
