@@ -1,13 +1,12 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { socket } from "../socket";
-import { playSound } from "../utils/sound";
 
 const LETTERS = ["A", "B", "C", "D"];
 
 export default function SabeTudoOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me          = room?.players?.find((p) => p.id === socket.id);
   const isHost      = !!me?.isHost;
-  const playerCount = room?.players?.length ?? 0;
+  const playerCount = (room?.players ?? []).filter(p => p.connected !== false).length;
 
   const phase         = gamePublic?.phase         ?? "lobby";
   const qIdx          = gamePublic?.qIdx          ?? 0;
@@ -25,19 +24,6 @@ export default function SabeTudoOnline({ onBack, room, roomCode, gamePublic, gam
   const timerColor  = timeLeft > 6 ? "#00e5b0" : timeLeft > 3 ? "#f97316" : "#ef4444";
 
   const leaveToMenu = () => { socket.emit("room:leave"); onBack?.(); };
-
-  const prevCorrectRef = useRef(isCorrect);
-  useEffect(() => {
-    if (prevCorrectRef.current === null && isCorrect === true)  playSound("correct");
-    if (prevCorrectRef.current === null && isCorrect === false) playSound("wrong");
-    prevCorrectRef.current = isCorrect;
-  }, [isCorrect]);
-
-  const prevPhaseRefS = useRef(phase);
-  useEffect(() => {
-    if (prevPhaseRefS.current !== "finished" && phase === "finished") playSound("win");
-    prevPhaseRefS.current = phase;
-  }, [phase]);
 
   function answer(optionIndex) {
     if (isAnswered || phase !== "question") return;

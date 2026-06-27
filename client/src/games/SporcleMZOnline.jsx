@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
-import { playSound } from "../utils/sound";
 
 export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me          = room?.players?.find(p => p.id === socket.id);
   const isHost      = !!me?.isHost;
-  const playerCount = room?.players?.length ?? 0;
+  const playerCount = (room?.players ?? []).filter(p => p.connected !== false).length;
 
   const phase       = gamePublic?.phase    ?? "lobby";
   const mode        = gamePublic?.mode     ?? "individual";
@@ -48,12 +47,6 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
     }
     setEditingTeamId(null);
   }
-
-  const prevPhaseRefSp = useRef(phase);
-  useEffect(() => {
-    if (prevPhaseRefSp.current !== "finished" && phase === "finished") playSound("win");
-    prevPhaseRefSp.current = phase;
-  }, [phase]);
 
   const leaveToMenu = () => { socket.emit("room:leave"); onBack?.(); };
 

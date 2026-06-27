@@ -1,7 +1,6 @@
 // client/src/games/XbolaOnline.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "../socket";
-import { playSound } from "../utils/sound";
 
 const CENTER = [
   { x: 0.5, y: 0.5 },
@@ -20,7 +19,7 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
   const isHost = !!me?.isHost;
 
   const phase = gamePublic?.phase ?? "lobby";
-  const playerCount = room?.players?.length ?? 0;
+  const playerCount = (room?.players ?? []).filter(p => p.connected !== false).length;
 
   const hostWants = gamePublic?.hostWants ?? null;
   const winsX = gamePublic?.winsX ?? 0;
@@ -64,12 +63,6 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
     }, 180);
     return () => clearTimeout(t);
   }, [fx?.fadedIdx, fx?.fadeSymbol]);
-
-  const prevPhaseRefX = useRef(phase);
-  useEffect(() => {
-    if (prevPhaseRefX.current !== "finished" && phase === "finished") playSound("win");
-    prevPhaseRefX.current = phase;
-  }, [phase]);
 
   const leaveToMenu = () => {
     socket.emit("room:leave");

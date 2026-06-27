@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { socket } from "./socket";
 import { playSound, setMuted, isMuted } from "./utils/sound";
-import QRCode from "react-qr-code";
 
 import ThirtySecondsOnline from "./games/ThirtySecondsOnline";
 import XbolaOnline         from "./games/XbolaOnline";
@@ -273,7 +272,6 @@ function GameSwitchOverlay({ onSwitch, onCancel }) {
     { key: "whoIsWho",      icon: "🎭", name: "Quem Sou Eu?" },
     { key: "sabeTudo",      icon: "🧠", name: "Sabe Tudo?" },
     { key: "sporcleMZ",     icon: "🧩", name: "Sporcle MZ" },
-    { key: "xbola",         icon: "⚽", name: "X-Bola" },
   ];
   return (
     <div className="noticeOverlay" onClick={onCancel}>
@@ -363,7 +361,6 @@ const CATS_WHO = [
 // ✅ REFATORIZADO: LobbyScreen com botão START do host
 function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
   const [shareFeedback, setShareFeedback] = useState("");
-  const [qrFull,        setQrFull]        = useState(false);
   const meta    = GAME_META[room?.gameType] || {};
   const players = room?.players || [];
   const isHost  = players.find(p => p.id === socket.id)?.isHost;
@@ -488,20 +485,6 @@ function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
             Toca para partilhar · WhatsApp, Instagram, SMS…
           </div>
         </button>
-
-        {/* QR CODE */}
-        <div onClick={() => setQrFull(true)} style={{ background:"#fff", borderRadius:16, padding:"14px 16px 10px", display:"flex", flexDirection:"column", alignItems:"center", gap:8, cursor:"pointer", userSelect:"none" }}>
-          <QRCode value={`https://mz-party-games-1.onrender.com/?join=${roomCode}`} size={130} bgColor="#ffffff" fgColor="#07090F" level="M" />
-          <div style={{ fontSize:15, fontWeight:900, letterSpacing:3, color:"#07090F" }}>{roomCode.match(/.{1,3}/g)?.join(" ")}</div>
-          <div style={{ fontSize:11, color:"#07090F", opacity:0.45, fontWeight:700 }}>Scan para entrar · toca para ampliar</div>
-        </div>
-        {qrFull && (
-          <div onClick={() => setQrFull(false)} style={{ position:"fixed", inset:0, zIndex:9999, background:"#fff", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:20 }}>
-            <QRCode value={`https://mz-party-games-1.onrender.com/?join=${roomCode}`} size={Math.min(window.innerWidth, window.innerHeight) - 80} bgColor="#ffffff" fgColor="#07090F" level="M" />
-            <div style={{ fontSize:22, fontWeight:900, letterSpacing:5, color:"#07090F" }}>{roomCode}</div>
-            <div style={{ fontSize:13, color:"#07090F", opacity:0.45 }}>Toca para fechar</div>
-          </div>
-        )}
 
         {/* PLAYERS */}
         <div className="lobbyPlayersCard">
@@ -778,7 +761,7 @@ export default function App() {
 
   const joinRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    const code = joinCode.toUpperCase().trim();
+    const code = joinCode.replace(/\s+/g, "").toUpperCase();
     if (!code) return showNotice("Join","Escreve o código da sala.");
     const playerName = name.trim() || "Player";
     setLoading("A verificar sala…");

@@ -414,10 +414,23 @@ export class SporcleMZEngine extends BaseEngine {
     this.phase = "lobby";
     this.qIdx  = 0;
     this.questions = [];
-    this.scores    = new Map();
-    this.teamScores = new Map();
     this.playerAnswers = new Map();
-    this.equipas = new Map();
+
+    // Preserve equipas but reset scores and rotate captains
+    if (this.equipas.size > 0) {
+      this.equipas.forEach(t => {
+        // Remove players that left the room
+        t.members = t.members.filter(id => this.room.players.has(id));
+        t.captainIdx = 0;
+        t.currentCaptainId = t.members[0] ?? null;
+      });
+      this.teamScores = new Map([...this.equipas.keys()].map(id => [id, 0]));
+      this.scores = new Map([...this.room.players.keys()].map(id => [id, 0]));
+    } else {
+      this.scores    = new Map();
+      this.teamScores = new Map();
+    }
+
     this.emitState();
   }
 
