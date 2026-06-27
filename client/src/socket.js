@@ -10,4 +10,7 @@ const SERVER_URL = (hostname === "localhost" || hostname === "127.0.0.1")
 
 export const socket = io(SERVER_URL, {
   transports: ["websocket", "polling"],
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
 });

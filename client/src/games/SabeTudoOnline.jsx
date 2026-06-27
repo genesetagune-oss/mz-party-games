@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { socket } from "../socket";
+import { playSound } from "../utils/sound";
 
 const LETTERS = ["A", "B", "C", "D"];
 
-export default function SabeTudoOnline({ onBack, room, roomCode, gamePublic, gamePrivate }) {
+export default function SabeTudoOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me          = room?.players?.find((p) => p.id === socket.id);
   const isHost      = !!me?.isHost;
   const playerCount = room?.players?.length ?? 0;
@@ -24,6 +25,19 @@ export default function SabeTudoOnline({ onBack, room, roomCode, gamePublic, gam
   const timerColor  = timeLeft > 6 ? "#00e5b0" : timeLeft > 3 ? "#f97316" : "#ef4444";
 
   const leaveToMenu = () => { socket.emit("room:leave"); onBack?.(); };
+
+  const prevCorrectRef = useRef(isCorrect);
+  useEffect(() => {
+    if (prevCorrectRef.current === null && isCorrect === true)  playSound("correct");
+    if (prevCorrectRef.current === null && isCorrect === false) playSound("wrong");
+    prevCorrectRef.current = isCorrect;
+  }, [isCorrect]);
+
+  const prevPhaseRefS = useRef(phase);
+  useEffect(() => {
+    if (prevPhaseRefS.current !== "finished" && phase === "finished") playSound("win");
+    prevPhaseRefS.current = phase;
+  }, [phase]);
 
   function answer(optionIndex) {
     if (isAnswered || phase !== "question") return;
@@ -147,10 +161,13 @@ export default function SabeTudoOnline({ onBack, room, roomCode, gamePublic, gam
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {isHost && (
-                <button className="btnPrimary" onClick={() => socket.emit("game:restart")} type="button">
-                  🔁 Jogar outra vez
-                </button>
+              {isHost ? (
+                <>
+                  <button className="btnPrimary" onClick={() => socket.emit("game:restart")} type="button">🔁 Jogar outra vez</button>
+                  <button className="btnPrimary" onClick={onSwitchGame} type="button">🎮 Mudar Jogo</button>
+                </>
+              ) : (
+                <div className="waitingHostMsg"><div className="waitingHostDot" />Host a decidir próximo passo...</div>
               )}
               <button className="btnGhost" onClick={leaveToMenu} type="button">← Menu</button>
             </div>

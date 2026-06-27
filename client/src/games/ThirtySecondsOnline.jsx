@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "../socket";
+import { playSound } from "../utils/sound";
 
-export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic, gamePrivate }) {
+export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me = room?.players?.find((p) => p.id === socket.id) || null;
   const isHost = !!me?.isHost;
 
@@ -114,6 +115,7 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
   // ✅ NOVO: Click com feedback suave
   const clickItem = (index) => {
     warmupAudio();
+    playSound("correct");
 
     // Pop-up suave
     setFloatingText({
@@ -151,6 +153,16 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
       alert("Não consegui copiar. Copie manualmente: " + roomCode);
     }
   };
+
+  const prevPhaseRef = useRef(phase);
+  useEffect(() => {
+    if (prevPhaseRef.current !== "finished" && phase === "finished") playSound("win");
+    prevPhaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase === "playing" && turnPhase === "play" && remaining > 0 && remaining <= 10) playSound("tick");
+  }, [remaining, phase, turnPhase]);
 
   const showExplainerDock = phase === "playing" && turnPhase === "play" && isExplainer;
 
@@ -411,10 +423,13 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
                     📲 Partilhar
                   </button>
                   {isHost ? (
-                    <button className="victoryBtn restart" onClick={restart} type="button">
-                      🔁 Reiniciar Partida
-                    </button>
-                  ) : null}
+                    <>
+                      <button className="victoryBtn restart" onClick={restart} type="button">🔁 Reiniciar Partida</button>
+                      <button className="victoryBtn restart" onClick={onSwitchGame} type="button">🎮 Mudar Jogo</button>
+                    </>
+                  ) : (
+                    <div className="waitingHostMsg"><div className="waitingHostDot" />Host a decidir próximo passo...</div>
+                  )}
                   <button className="victoryBtn menu" onClick={leaveToMenu} type="button">
                     ← Menu
                   </button>

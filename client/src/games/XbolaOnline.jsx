@@ -1,6 +1,7 @@
 // client/src/games/XbolaOnline.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "../socket";
+import { playSound } from "../utils/sound";
 
 const CENTER = [
   { x: 0.5, y: 0.5 },
@@ -14,7 +15,7 @@ const CENTER = [
   { x: 2.5, y: 2.5 },
 ];
 
-export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePrivate }) {
+export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me = room?.players?.find((p) => p.id === socket.id) || null;
   const isHost = !!me?.isHost;
 
@@ -63,6 +64,12 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
     }, 180);
     return () => clearTimeout(t);
   }, [fx?.fadedIdx, fx?.fadeSymbol]);
+
+  const prevPhaseRefX = useRef(phase);
+  useEffect(() => {
+    if (prevPhaseRefX.current !== "finished" && phase === "finished") playSound("win");
+    prevPhaseRefX.current = phase;
+  }, [phase]);
 
   const leaveToMenu = () => {
     socket.emit("room:leave");
@@ -359,15 +366,13 @@ export default function XbolaOnline({ onBack, room, roomCode, gamePublic, gamePr
                 </button>
 
                 {isHost ? (
-                  <button
-                    className="btnPrimary"
-                    style={{ marginTop: 10 }}
-                    onClick={restartDuel}
-                    type="button"
-                  >
-                    🔁 Reiniciar
-                  </button>
-                ) : null}
+                  <>
+                    <button className="btnPrimary" style={{ marginTop: 10 }} onClick={restartDuel} type="button">🔁 Reiniciar</button>
+                    <button className="btnPrimary" style={{ marginTop: 6 }} onClick={onSwitchGame} type="button">🎮 Mudar Jogo</button>
+                  </>
+                ) : (
+                  <div className="waitingHostMsg" style={{ marginTop: 10 }}><div className="waitingHostDot" />Host a decidir próximo passo...</div>
+                )}
 
                 <button
                   className="btnGhost"

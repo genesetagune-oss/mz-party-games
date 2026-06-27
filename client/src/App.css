@@ -1899,3 +1899,26 @@ body {
 @keyframes xbolaWinDraw {
   to { stroke-dashoffset: 0; }
 }
+
+/* ── Guest waiting for host ────────────────────────── */
+@keyframes pulseWait {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.2); }
+}
+.waitingHostMsg {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(234,236,244,.5);
+}
+.waitingHostDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00e5b0;
+  animation: pulseWait 1.4s ease-in-out infinite;
+}

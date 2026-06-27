@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { socket } from "./socket";
+import { playSound, setMuted, isMuted } from "./utils/sound";
+import QRCode from "react-qr-code";
 
 import ThirtySecondsOnline from "./games/ThirtySecondsOnline";
 import XbolaOnline         from "./games/XbolaOnline";
@@ -23,6 +25,7 @@ const LS_NAME        = "mzpg_name";
 const LS_HIDE_ALERTS = "mzpg_hide_alerts";
 const LS_ROOM_CODE   = "mzpg_room_code";
 const LS_ROOM_GAME   = "mzpg_room_game";
+const LS_ROOM_TEAM   = "mzpg_room_team";
 // ✅ NOVO: localStorage para regras vistas
 const LS_RULES_SEEN  = (gt) => `mzpg_rules_seen_${gt}`;
 
@@ -264,6 +267,33 @@ function TeamOverlay({ mode, onConfirm, onCancel }) {
   );
 }
 
+function GameSwitchOverlay({ onSwitch, onCancel }) {
+  const games = [
+    { key: "thirtySeconds", icon: "⏱️", name: "30 Segundos" },
+    { key: "whoIsWho",      icon: "🎭", name: "Quem Sou Eu?" },
+    { key: "sabeTudo",      icon: "🧠", name: "Sabe Tudo?" },
+    { key: "sporcleMZ",     icon: "🧩", name: "Sporcle MZ" },
+    { key: "xbola",         icon: "⚽", name: "X-Bola" },
+  ];
+  return (
+    <div className="noticeOverlay" onClick={onCancel}>
+      <div className="noticeCard" onClick={e => e.stopPropagation()} style={{ gap: 10, maxWidth: 340 }}>
+        <div className="noticeTitle">🎮 Mudar Jogo</div>
+        <div className="noticeSub">Escolhe o próximo jogo para toda a sala</div>
+        {games.map(g => (
+          <button key={g.key} type="button" onClick={() => onSwitch(g.key)}
+            style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:14, padding:"13px 16px", color:"#eaeaf4", fontSize:15, fontWeight:700, cursor:"pointer", textAlign:"left" }}>
+            {g.icon} {g.name}
+          </button>
+        ))}
+        <button type="button" onClick={onCancel} style={{ background:"none", border:"none", color:"rgba(234,236,244,.4)", fontSize:13, cursor:"pointer", marginTop:4 }}>
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RulesModal({ gameType, onClose, onPlay }) {
   const meta = GAME_META[gameType];
   if (!meta) return null;
@@ -333,6 +363,7 @@ const CATS_WHO = [
 // ✅ REFATORIZADO: LobbyScreen com botão START do host
 function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
   const [shareFeedback, setShareFeedback] = useState("");
+  const [qrFull,        setQrFull]        = useState(false);
   const meta    = GAME_META[room?.gameType] || {};
   const players = room?.players || [];
   const isHost  = players.find(p => p.id === socket.id)?.isHost;
@@ -458,6 +489,20 @@ function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
           </div>
         </button>
 
+        {/* QR CODE */}
+        <div onClick={() => setQrFull(true)} style={{ background:"#fff", borderRadius:16, padding:"14px 16px 10px", display:"flex", flexDirection:"column", alignItems:"center", gap:8, cursor:"pointer", userSelect:"none" }}>
+          <QRCode value={`https://mz-party-games-1.onrender.com/?join=${roomCode}`} size={130} bgColor="#ffffff" fgColor="#07090F" level="M" />
+          <div style={{ fontSize:15, fontWeight:900, letterSpacing:3, color:"#07090F" }}>{roomCode.match(/.{1,3}/g)?.join(" ")}</div>
+          <div style={{ fontSize:11, color:"#07090F", opacity:0.45, fontWeight:700 }}>Scan para entrar · toca para ampliar</div>
+        </div>
+        {qrFull && (
+          <div onClick={() => setQrFull(false)} style={{ position:"fixed", inset:0, zIndex:9999, background:"#fff", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:20 }}>
+            <QRCode value={`https://mz-party-games-1.onrender.com/?join=${roomCode}`} size={Math.min(window.innerWidth, window.innerHeight) - 80} bgColor="#ffffff" fgColor="#07090F" level="M" />
+            <div style={{ fontSize:22, fontWeight:900, letterSpacing:5, color:"#07090F" }}>{roomCode}</div>
+            <div style={{ fontSize:13, color:"#07090F", opacity:0.45 }}>Toca para fechar</div>
+          </div>
+        )}
+
         {/* PLAYERS */}
         <div className="lobbyPlayersCard">
           <div className="lobbyPlayersHeader">
@@ -555,6 +600,9 @@ export default function App() {
   const [dontShowAgain,   setDontShowAgain]   = useState(false);
   const [rulesFor,        setRulesFor]        = useState(null);
   const [rulesCallback,   setRulesCallback]   = useState(null);
+  const [muted,           setMutedState]      = useState(() => localStorage.getItem("mzpg_muted") === "1");
+  const [switchingGame,   setSwitchingGame]   = useState(false);
+  const [guestWaiting,    setGuestWaiting]    = useState(false);
 
   const rejoinRef          = useRef(false);
   const sporcleMZConfigRef = useRef({ mode: "individual", teamCount: 2 });
@@ -605,10 +653,12 @@ export default function App() {
       socket.emit("room:preview", { roomCode: savedCode }, (res) => {
         if (res?.ok) {
           const n = (localStorage.getItem(LS_NAME) || "Player").trim();
-          socket.emit("room:join", { roomCode: savedCode, name: n, team: "A" });
+          const t = localStorage.getItem(LS_ROOM_TEAM) || "A";
+          socket.emit("room:join", { roomCode: savedCode, name: n, team: t });
         } else {
           localStorage.removeItem(LS_ROOM_CODE);
           localStorage.removeItem(LS_ROOM_GAME);
+          localStorage.removeItem(LS_ROOM_TEAM);
           setLoading(null);
         }
       });
@@ -642,28 +692,41 @@ export default function App() {
         }
       }
     });
-    socket.on("room:update", ({ room, roomCode: rc }) => { setRoom(room); if (rc) setRoomCode(rc); setLoading(null); });
+    const prevPlayerCountRef = { current: 0 };
+    socket.on("room:update", ({ room, roomCode: rc }) => {
+      const newCount = room?.players?.length ?? 0;
+      if (newCount > prevPlayerCountRef.current) playSound("join");
+      prevPlayerCountRef.current = newCount;
+      setRoom(room); if (rc) setRoomCode(rc); setLoading(null);
+      setGuestWaiting(false);
+      const me = room?.players?.find(p => p.id === socket.id);
+      if (me?.team) localStorage.setItem(LS_ROOM_TEAM, me.team);
+    });
     socket.on("room:error",  (e) => {
       setLoading(null);
       showNotice("Erro", `${e.code}${e.message?" — "+e.message:""}`);
-      localStorage.removeItem(LS_ROOM_CODE); localStorage.removeItem(LS_ROOM_GAME);
+      localStorage.removeItem(LS_ROOM_CODE); localStorage.removeItem(LS_ROOM_GAME); localStorage.removeItem(LS_ROOM_TEAM);
     });
     socket.on("game:state", (s) => {
       setGamePublic(s.public); setGamePrivate(s.private);
       if (s.public?.phase && s.public.phase !== "lobby") setInLobby(false);
     });
     socket.on("game:error", (e) => { showNotice("Game error", `${e.code}${e.message?" — "+e.message:""}`); });
+    socket.on("room:gameChanged", () => {
+      setGuestWaiting(true);
+      setGamePublic(null); setGamePrivate(null); setInLobby(true);
+    });
     return () => {
       socket.off("connect",onConnect); socket.off("disconnect",onDisconnect);
       socket.off("room:created"); socket.off("room:update"); socket.off("room:error");
-      socket.off("game:state"); socket.off("game:error");
+      socket.off("game:state"); socket.off("game:error"); socket.off("room:gameChanged");
     };
   }, [showNotice]);
 
   const leaveRoom = (emit = true) => {
     if (emit) socket.emit("room:leave");
     setRoom(null); setRoomCode(""); setGamePublic(null); setGamePrivate(null); setInLobby(false);
-    localStorage.removeItem(LS_ROOM_CODE); localStorage.removeItem(LS_ROOM_GAME);
+    localStorage.removeItem(LS_ROOM_CODE); localStorage.removeItem(LS_ROOM_GAME); localStorage.removeItem(LS_ROOM_TEAM);
   };
 
   // ✅ NOVO: Mostra regras só 1ª vez (localStorage)
@@ -744,12 +807,25 @@ export default function App() {
   };
 
   // ── Overlays ──────────────────────────────────────────────
+  const handleSwitchGame = (gameType) => {
+    socket.emit("game:switch", { gameType });
+    setSwitchingGame(false);
+    setGamePublic(null); setGamePrivate(null); setInLobby(true);
+  };
+
   const Overlays = () => (
     <>
       {notice    && <Notice title={notice.title} message={notice.message} dontShow={dontShowAgain} setDontShow={setDontShowAgain} onClose={closeNotice} />}
       {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} />}
       {rulesFor  && <RulesModal gameType={rulesFor} onClose={closeRules} onPlay={confirmRules} />}
       {showSporcleMZConfig && <SporcleMZConfigOverlay onConfirm={confirmSporcleMZConfig} onCancel={() => setShowSporcleMZConfig(false)} />}
+      {switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} />}
+      {guestWaiting && (
+        <div style={{ position:"fixed", inset:0, zIndex:2000, background:"rgba(7,9,15,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
+          <div className="waitingHostDot" style={{ width:14, height:14 }} />
+          <div style={{ fontWeight:800, color:"rgba(234,236,244,.65)", fontSize:15 }}>Host a mudar o jogo...</div>
+        </div>
+      )}
     </>
   );
 
@@ -775,15 +851,17 @@ export default function App() {
     return null;
   }
 
+  const onSwitchGame = () => setSwitchingGame(true);
+
   // sporcleMZ handles its own lobby phase — must come before generic inLobby check
-  if (room?.gameType === "sporcleMZ")  return <><SporcleMZOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} /><Overlays /></>;
+  if (room?.gameType === "sporcleMZ")  return <><SporcleMZOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
 
   if (room && inLobby) return <><LobbyScreen room={room} roomCode={roomCode} onLeave={() => leaveRoom(true)} gamePublic={gamePublic} onRules={() => openRulesOnly(room.gameType)} /><Overlays /></>;
 
-  if (room?.gameType === "thirtySeconds") return <ThirtySecondsOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} />;
-  if (room?.gameType === "xbola")         return <XbolaOnline         room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} />;
-  if (room?.gameType === "whoIsWho")      return <WhoIsWhoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} />;
-  if (room?.gameType === "sabeTudo")      return <SabeTudoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} />;
+  if (room?.gameType === "thirtySeconds") return <><ThirtySecondsOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
+  if (room?.gameType === "xbola")         return <><XbolaOnline         room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
+  if (room?.gameType === "whoIsWho")      return <><WhoIsWhoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
+  if (room?.gameType === "sabeTudo")      return <><SabeTudoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
 
   if (view === "HOME") {
     return (
@@ -869,7 +947,14 @@ export default function App() {
             <GameCard icon="🎭" title="Quem Sou Eu?"   sub="Adivinha com dicas · 90s"  onClick={createWhoIsWhoRoom} badge="2+ jogadores" color="#4a9eff" />
             <GameCard icon="🧩" title="Sporcle MZ"    sub="Quiz cronometrado · 3 temas" onClick={createSporcleMZRoom} badge="2+ jogadores" color="#7c5dfa" />
           </div>
-          <button onClick={() => setView("HOME")} className="btnBack" type="button" style={{marginTop:16,width:"100%",textAlign:"center"}}>
+          <button
+            type="button"
+            onClick={() => { const m = !muted; setMutedState(m); setMuted(m); localStorage.setItem("mzpg_muted", m ? "1" : "0"); }}
+            style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 16px", color:"rgba(234,236,244,0.7)", fontSize:14, fontWeight:700, cursor:"pointer", marginTop:8 }}
+          >
+            {muted ? "🔇 Som desligado" : "🔊 Som ligado"} · toca para alternar
+          </button>
+          <button onClick={() => setView("HOME")} className="btnBack" type="button" style={{marginTop:8,width:"100%",textAlign:"center"}}>
             Voltar
           </button>
         </section>

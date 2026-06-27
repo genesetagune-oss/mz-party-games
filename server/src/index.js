@@ -157,6 +157,29 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     ctx.room.engine?.restartGame?.(socket.id);
   });
 
+  // ---------- SWITCH GAME (same room, new engine) ----------
+  socket.on("game:switch", ({ gameType }) => {
+    const ctx = getRoomBySocket(socket.id);
+    if (!ctx) return;
+    const { code, room } = ctx;
+    const player = room.players.get(socket.id);
+    if (!player?.isHost) return;
+
+    const valid = ["thirtySeconds", "xbola", "whoIsWho", "sabeTudo", "sporcleMZ"];
+    if (!valid.includes(gameType)) return;
+
+    room.engine?.destroy?.();
+    room.gameType = gameType;
+    room.status = "lobby";
+    room.config.maxPlayers = gameType === "xbola" ? 2 : 8;
+    room.closed = room.players.size >= room.config.maxPlayers;
+    room.engine = createEngine(gameType, { io, roomCode: code, room });
+
+    io.to(code).emit("room:gameChanged", { gameType });
+    room.engine.emitState();
+    io.to(code).emit("room:update", { roomCode: code, room: roomManager.publicRoomState(room) });
+  });
+
   // ---------- LEAVE ROOM ----------
   socket.on("room:leave", () => {
     const ctx = getRoomBySocket(socket.id);

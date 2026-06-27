@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
+import { playSound } from "../utils/sound";
 
-export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, gamePrivate }) {
+export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me          = room?.players?.find(p => p.id === socket.id);
   const isHost      = !!me?.isHost;
   const playerCount = room?.players?.length ?? 0;
@@ -47,6 +48,12 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
     }
     setEditingTeamId(null);
   }
+
+  const prevPhaseRefSp = useRef(phase);
+  useEffect(() => {
+    if (prevPhaseRefSp.current !== "finished" && phase === "finished") playSound("win");
+    prevPhaseRefSp.current = phase;
+  }, [phase]);
 
   const leaveToMenu = () => { socket.emit("room:leave"); onBack?.(); };
 
@@ -434,10 +441,13 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-                {isHost && (
-                  <button className="btnPrimary" onClick={() => socket.emit("game:restart")} type="button">
-                    🔁 Jogar outra vez
-                  </button>
+                {isHost ? (
+                  <>
+                    <button className="btnPrimary" onClick={() => socket.emit("game:restart")} type="button">🔁 Jogar outra vez</button>
+                    <button className="btnPrimary" onClick={onSwitchGame} type="button">🎮 Mudar Jogo</button>
+                  </>
+                ) : (
+                  <div className="waitingHostMsg"><div className="waitingHostDot" />Host a decidir próximo passo...</div>
                 )}
                 <button className="btnGhost" onClick={leaveToMenu} type="button">← Menu</button>
               </div>
@@ -489,10 +499,13 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
               })}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {isHost && (
-                <button className="btnPrimary" onClick={() => socket.emit("game:restart")} type="button">
-                  🔁 Jogar outra vez
-                </button>
+              {isHost ? (
+                <>
+                  <button className="btnPrimary" onClick={() => socket.emit("game:restart")} type="button">🔁 Jogar outra vez</button>
+                  <button className="btnPrimary" onClick={onSwitchGame} type="button">🎮 Mudar Jogo</button>
+                </>
+              ) : (
+                <div className="waitingHostMsg"><div className="waitingHostDot" />Host a decidir próximo passo...</div>
               )}
               <button className="btnGhost" onClick={leaveToMenu} type="button">← Menu</button>
             </div>

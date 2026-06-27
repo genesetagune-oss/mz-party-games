@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "../socket";
+import { playSound } from "../utils/sound";
 
 const SECTIONS = [
   {
@@ -32,7 +33,7 @@ const SECTIONS = [
   },
 ];
 
-export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gamePrivate }) {
+export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me = room?.players?.find((p) => p.id === socket.id) || null;
   const isHost = !!me?.isHost;
   const playerCount = room?.players?.length ?? 0;
@@ -91,8 +92,8 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
   const leaveToMenu = () => { socket.emit("room:leave"); onBack?.(); };
   const startGame  = () => { warmupAudio(); socket.emit("game:start"); };
   const setCat     = (cat) => { warmupAudio(); socket.emit("game:setCategory", { category: cat }); };
-  const yes        = () => { warmupAudio(); showFloat("✅ +1"); socket.emit("game:command", { type: "YES" }); };
-  const no         = () => { warmupAudio(); showFloat("❌"); socket.emit("game:command", { type: "NO" }); };
+  const yes        = () => { warmupAudio(); playSound("correct"); showFloat("✅ +1"); socket.emit("game:command", { type: "YES" }); };
+  const no         = () => { warmupAudio(); playSound("wrong"); showFloat("❌"); socket.emit("game:command", { type: "NO" }); };
   const pass       = () => { warmupAudio(); socket.emit("game:command", { type: "PASS" }); };
   const togglePause = () => { warmupAudio(); socket.emit("game:command", { type: "PAUSE_TOGGLE" }); };
   const restart    = () => { warmupAudio(); socket.emit("game:restart"); };
@@ -103,6 +104,12 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
     if (navigator.share) { try { await navigator.share({ title: "MZ Party Games", text, url }); } catch {} }
     else { try { await navigator.clipboard.writeText(text); } catch {} }
   };
+
+  const prevPhaseRefW = useRef(phase);
+  useEffect(() => {
+    if (prevPhaseRefW.current !== "finished" && phase === "finished") playSound("win");
+    prevPhaseRefW.current = phase;
+  }, [phase]);
 
   const title = useMemo(() => {
     if (phase === "finished") return `🏆 Vencedor: Equipa ${winnerTeam}`;
@@ -330,8 +337,13 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                 <div className="victorySub">{scores[winnerTeam]} pontos</div>
                 <div className="victoryBtns">
                   <button className="victoryBtn share" onClick={handleShare} type="button">📲 Partilhar</button>
-                  {isHost && (
-                    <button className="victoryBtn restart" onClick={restart} type="button">🔁 Reiniciar</button>
+                  {isHost ? (
+                    <>
+                      <button className="victoryBtn restart" onClick={restart} type="button">🔁 Reiniciar</button>
+                      <button className="victoryBtn restart" onClick={onSwitchGame} type="button">🎮 Mudar Jogo</button>
+                    </>
+                  ) : (
+                    <div className="waitingHostMsg"><div className="waitingHostDot" />Host a decidir próximo passo...</div>
                   )}
                   <button className="victoryBtn menu" onClick={leaveToMenu} type="button">Menu</button>
                 </div>
