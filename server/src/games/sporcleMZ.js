@@ -107,7 +107,7 @@ export class SporcleMZEngine extends BaseEngine {
   constructor(params) {
     super(params);
     this.phase = "lobby";
-    this.mode  = "individual";
+    this.mode  = "equipas";
 
     this.questions = [];
     this.qIdx      = 0;

@@ -136,17 +136,19 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
     const assignedIds         = new Set(equipas.flatMap(t => t.members.map(m => m.id)));
     const unassigned          = room?.players?.filter(p => !assignedIds.has(p.id)) ?? [];
     const allTeamsHaveMembers = equipas.every(t => t.members.length > 0);
-    const canStart = playerCount >= 2 &&
-      (mode !== "equipas" || (unassigned.length === 0 && allTeamsHaveMembers));
+    const canStart = playerCount >= 2 && equipas.length >= 2 &&
+      unassigned.length === 0 && allTeamsHaveMembers;
 
     const disabledReason = !canStart
       ? playerCount < 2
         ? `Faltam ${2 - playerCount} jogador${2 - playerCount !== 1 ? "es" : ""} para começar`
-        : mode === "equipas" && unassigned.length > 0
-          ? `${unassigned.length} jogador${unassigned.length !== 1 ? "es" : ""} ainda sem equipa`
-          : mode === "equipas" && !allTeamsHaveMembers
-            ? "Alguma equipa está vazia"
-            : null
+        : equipas.length < 2
+          ? "O host ainda não criou as equipas"
+          : unassigned.length > 0
+            ? `${unassigned.length} jogador${unassigned.length !== 1 ? "es" : ""} ainda sem equipa`
+            : !allTeamsHaveMembers
+              ? "Alguma equipa está vazia"
+              : null
       : null;
 
     return (
@@ -156,7 +158,7 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
             <button className="btnGhost" onClick={leaveToMenu} type="button">← Menu</button>
             <div className="headerTitleBlock">
               <div className="h1Brand">MZ Party Games</div>
-              <div className="h2Game">Sporcle MZ · {mode === "equipas" ? "Equipas" : "Individual"}</div>
+              <div className="h2Game">Sporcle MZ · Equipas</div>
               <div style={{ opacity: .6, fontSize: 11, marginTop: 2 }}>
                 Sala: <b>{roomCode}</b> · {playerCount} jogador{playerCount !== 1 ? "es" : ""}
               </div>
@@ -179,22 +181,37 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
               <div style={{ fontSize: 11, opacity: .50, marginTop: 6 }}>Toca para partilhar</div>
             </button>
 
-            {mode === "individual" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-                {room?.players?.map(p => (
-                  <div key={p.id} style={{
-                    background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.08)",
-                    borderRadius: 12, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10,
-                  }}>
-                    <span style={{ fontSize: 16 }}>{p.isHost ? "👑" : "🎮"}</span>
-                    <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{p.name}</span>
-                    {p.id === socket.id && <span style={{ fontSize: 11, color: "rgba(255,255,255,.35)" }}>(tu)</span>}
-                  </div>
-                ))}
+            {/* ── Host: criar equipas ── */}
+            {isHost && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 8 }}>
+                  {equipas.length === 0 ? "Criar equipas:" : "Alterar equipas:"}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: equipas.length > 0 ? 8 : 0 }}>
+                  {[2, 3, 4].map(n => (
+                    <button key={n} type="button"
+                      onClick={() => socket.emit("game:command", { type: "CREATE_TEAMS", count: n })}
+                      style={{
+                        flex: 1, padding: "10px 0", borderRadius: 12, fontWeight: 800, fontSize: 13,
+                        border: equipas.length === n ? "2px solid #7c5dfa" : "1.5px solid rgba(255,255,255,.15)",
+                        background: equipas.length === n ? "rgba(124,93,250,.2)" : "rgba(255,255,255,.05)",
+                        color: equipas.length === n ? "#c4b5fd" : "rgba(255,255,255,.6)", cursor: "pointer",
+                      }}>
+                      {n} equipas
+                    </button>
+                  ))}
+                </div>
+                {equipas.length >= 2 && (
+                  <button type="button"
+                    onClick={() => socket.emit("game:command", { type: "AUTO_SHUFFLE" })}
+                    style={{ width: "100%", padding: "9px 0", borderRadius: 12, fontWeight: 700, fontSize: 13, border: "1.5px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.55)", cursor: "pointer" }}>
+                    🔀 Distribuir automaticamente
+                  </button>
+                )}
               </div>
             )}
 
-            {mode === "equipas" && (
+            {equipas.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
                 {unassigned.length > 0 && (
                   <div>

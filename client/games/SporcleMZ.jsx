@@ -3,26 +3,9 @@ import { SPORCLE_CATS } from "./sporcleMZData.js";
 import { verificarResposta } from "./sporcleMZVerification.js";
 import { GameTimer, calcSoloPoints } from "./sporcleMZEngine.js";
 
-const LS_RULES       = "mzpg_sporcle_rules_seen";
-const LS_SEEN_IDS    = "mzpg_sporcle_seen_ids";
-const LS_LEADERBOARD = "mzpg_sporcle_scores";
-const MAX_SEEN       = 50;
-const MAX_SCORES     = 10;
-
-function saveLeaderboardEntry(score, catNome) {
-  try {
-    const prev = JSON.parse(localStorage.getItem(LS_LEADERBOARD) || "[]");
-    const entry = { score, cat: catNome, date: new Date().toLocaleDateString("pt-MZ") };
-    const next = [...prev, entry].sort((a, b) => b.score - a.score).slice(0, MAX_SCORES);
-    localStorage.setItem(LS_LEADERBOARD, JSON.stringify(next));
-    return next;
-  } catch { return []; }
-}
-
-function loadLeaderboard() {
-  try { return JSON.parse(localStorage.getItem(LS_LEADERBOARD) || "[]"); }
-  catch { return []; }
-}
+const LS_RULES    = "mzpg_sporcle_rules_seen";
+const LS_SEEN_IDS = "mzpg_sporcle_seen_ids";
+const MAX_SEEN    = 50;
 
 function shuffle(arr) {
   const a = [...arr];
@@ -36,11 +19,10 @@ function shuffle(arr) {
 function buildShuffledQuestions(cat) {
   try {
     const seen = JSON.parse(localStorage.getItem(LS_SEEN_IDS) || "[]");
-    const unseenFirst = [
+    return shuffle([
       ...cat.perguntas.filter(q => !seen.includes(q.id)),
       ...cat.perguntas.filter(q =>  seen.includes(q.id)),
-    ];
-    return shuffle(unseenFirst);
+    ]);
   } catch {
     return shuffle(cat.perguntas);
   }
@@ -54,10 +36,9 @@ function markSeen(ids) {
   } catch {}
 }
 
-// ── Sub-components ─────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────
 
-function TimerBar({ remaining, total, active }) {
-  if (!active) return null;
+function TimerBar({ remaining, total }) {
   const pct   = Math.max(0, (remaining / total) * 100);
   const color = remaining > total * 0.5 ? "#00e5b0"
               : remaining > total * 0.2 ? "#f97316"
@@ -106,95 +87,72 @@ function FeedbackBanner({ feedback }) {
   );
 }
 
-// ── Main Component ─────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────
 export default function SporcleMZ({ onBack }) {
-  const [phase,     setPhase]     = useState("catSelect");
-  const [cat,       setCat]       = useState(null);
-  const [qs,        setQs]        = useState([]);
-  const [qIdx,      setQIdx]      = useState(0);
-  const [input,     setInput]     = useState("");
-  const [acertadas, setAcertadas] = useState(new Set());
-  const [feedback,  setFeedback]  = useState(null);
-  const [pontos,    setPontos]    = useState(0);
-  const [streak,    setStreak]    = useState(0);
-  const [timeLeft,  setTimeLeft]  = useState(0);
-  const [blurCount, setBlurCount] = useState(0);
-  const [antiPaused,setAntiPaused]= useState(false);
-  const [compromised,setCompromised]=useState(false);
-  const [resultados,setResultados]= useState([]);
-  const [leaderboard,setLeaderboard] = useState([]);
+  const [phase,    setPhase]    = useState("setup");
+  const [cat,      setCat]      = useState(null);
+  const [qs,       setQs]       = useState([]);
+  const [qIdx,     setQIdx]     = useState(0);
+  const [input,    setInput]    = useState("");
+  const [acertadas,setAcertadas]= useState(new Set());
+  const [feedback, setFeedback] = useState(null);
+  const [pontos,   setPontos]   = useState(0);
+  const [streak,   setStreak]   = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [resultados,setResultados] = useState([]);
 
-  // ── mutable refs (avoid stale closures in timer callbacks) ──
+  // ── Multi-player ──────────────────────────────────────
+  const [nameDrafts,       setNameDrafts]       = useState(Array(6).fill(""));
+  const [players,          setPlayers]          = useState([]);
+  const [playerScores,     setPlayerScores]     = useState([]);
+  const [currentPlayerIdx, setCurrentPlayerIdx] = useState(0);
+  // ──────────────────────────────────────────────────────
+
   const timerRef        = useRef(new GameTimer());
   const inputRef        = useRef(null);
   const fbTimRef        = useRef(null);
-  const qsRef           = useRef([]);       // always current qs
-  const qIdxRef         = useRef(0);        // always current qIdx
+  const qsRef           = useRef([]);
+  const qIdxRef         = useRef(0);
   const acertadasRef    = useRef(new Set());
   const qPtsRef         = useRef(0);
   const pontosRef       = useRef(0);
   const streakRef       = useRef(0);
-  const handleTimeoutRef= useRef(null);     // always current handleTimeout
+  const handleTimeoutRef= useRef(null);
+  // stable refs for callbacks
+  const playersRef          = useRef([]);
+  const playerScoresRef     = useRef([]);
+  const currentPlayerIdxRef = useRef(0);
 
-  // keep refs in sync with state
-  useEffect(() => { qsRef.current    = qs;    }, [qs]);
-  useEffect(() => { qIdxRef.current  = qIdx;  }, [qIdx]);
-  useEffect(() => { acertadasRef.current = acertadas; }, [acertadas]);
+  useEffect(() => { qsRef.current           = qs;           }, [qs]);
+  useEffect(() => { qIdxRef.current         = qIdx;         }, [qIdx]);
+  useEffect(() => { acertadasRef.current    = acertadas;    }, [acertadas]);
+  useEffect(() => { playersRef.current      = players;      }, [players]);
+  useEffect(() => { playerScoresRef.current = playerScores; }, [playerScores]);
+  useEffect(() => { currentPlayerIdxRef.current = currentPlayerIdx; }, [currentPlayerIdx]);
 
-  // ── feedback auto-dismiss ────────────────────────────────
   useEffect(() => {
     if (!feedback) return;
     if (fbTimRef.current) clearTimeout(fbTimRef.current);
-    fbTimRef.current = setTimeout(
-      () => { setFeedback(null); setTimeout(() => inputRef.current?.focus(), 50); },
-      feedback.tipo === "quase" ? 2500 : 900
-    );
+    const delay = feedback.tipo === "quase" ? 2500 : 900;
+    fbTimRef.current = setTimeout(() => {
+      setFeedback(null);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }, delay);
     return () => clearTimeout(fbTimRef.current);
   }, [feedback]);
 
-  // ── cleanup ──────────────────────────────────────────────
   useEffect(() => () => timerRef.current.stop(), []);
 
-  // ── load leaderboard on mount ────────────────────────────
-  useEffect(() => { setLeaderboard(loadLeaderboard()); }, []);
-
-  // ── blur / anti-cheat ────────────────────────────────────
-  useEffect(() => {
-    const onBlur = () => {
-      if (phaseRef.current !== "playing") return;
-      timerRef.current.pause();
-      setAntiPaused(true);
-      setBlurCount(prev => {
-        const next = prev + 1;
-        if (next >= 3) { setCompromised(true); streakRef.current = 0; setStreak(0); }
-        return next;
-      });
-    };
-    window.addEventListener("blur", onBlur);
-    return () => window.removeEventListener("blur", onBlur);
-  }, []);
-
-  // ref for phase (used inside blur listener)
-  const phaseRef = useRef("catSelect");
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
-
-  const resumeFromAntiCheat = () => {
-    setAntiPaused(false);
-    timerRef.current.resume();
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
-
-  // ── timer ────────────────────────────────────────────────
-  // always-current version of handleTimeout, passed to timer via ref
   function handleTimeout() {
     const currentQ = qsRef.current[qIdxRef.current];
-    setResultados(prev => [
-      ...prev,
-      { q: currentQ, acertadas: new Set(acertadasRef.current), pontos: qPtsRef.current }
-    ]);
+    setResultados(prev => [...prev, {
+      q:          currentQ,
+      acertadas:  new Set(acertadasRef.current),
+      pontos:     qPtsRef.current,
+      playerName: playersRef.current[currentPlayerIdxRef.current] ?? "?",
+    }]);
     advanceQuestion();
   }
-  // keep the ref fresh on every render so timer always calls the latest version
   handleTimeoutRef.current = handleTimeout;
 
   const startTimer = useCallback((q) => {
@@ -202,47 +160,65 @@ export default function SporcleMZ({ onBack }) {
     timerRef.current.start(
       q.tempo,
       (rem) => setTimeLeft(rem),
-      ()    => handleTimeoutRef.current?.(),
+      () => handleTimeoutRef.current?.(),
     );
     setTimeLeft(q.tempo);
   }, []);
 
-  // ── advance question ─────────────────────────────────────
   function advanceQuestion() {
     timerRef.current.stop();
-    const nextIdx = qIdxRef.current + 1;
-    qIdxRef.current = nextIdx;
 
-    if (nextIdx >= qsRef.current.length) {
+    // award this turn's points to current player
+    const ci     = currentPlayerIdxRef.current;
+    const scores = [...playerScoresRef.current];
+    scores[ci]   = (scores[ci] || 0) + qPtsRef.current;
+    setPlayerScores(scores);
+    playerScoresRef.current = scores;
+
+    const nextQIdx = qIdxRef.current + 1;
+    qIdxRef.current = nextQIdx;
+
+    if (nextQIdx >= qsRef.current.length) {
       markSeen(qsRef.current.map(q => q.id));
-      const lb = saveLeaderboardEntry(pontosRef.current, cat?.nome ?? "");
-      setLeaderboard(lb);
       setPhase("finished");
       return;
     }
 
-    setQIdx(nextIdx);
+    setQIdx(nextQIdx);
     setAcertadas(new Set());
     acertadasRef.current = new Set();
-    qPtsRef.current = 0;
+    qPtsRef.current   = 0;
+    pontosRef.current = 0;
+    setPontos(0);
+    streakRef.current = 0;
+    setStreak(0);
     setInput("");
     setFeedback(null);
-    setTimeout(() => {
-      startTimer(qsRef.current[nextIdx]);
-      inputRef.current?.focus();
-    }, 80);
+
+    const nextPlayerIdx = (ci + 1) % playersRef.current.length;
+    setCurrentPlayerIdx(nextPlayerIdx);
+    currentPlayerIdxRef.current = nextPlayerIdx;
+    setPhase("passPhone");
   }
 
-  // ── start game ───────────────────────────────────────────
-  function startGame(selectedCat) {
+  function startCat(selectedCat) {
+    const cleanNames = nameDrafts.map(n => n.trim()).filter(n => n.length > 0);
+    const initScores = Array(cleanNames.length).fill(0);
+
+    setPlayers(cleanNames);
+    setPlayerScores(initScores);
+    setCurrentPlayerIdx(0);
+    playersRef.current          = cleanNames;
+    playerScoresRef.current     = initScores;
+    currentPlayerIdxRef.current = 0;
+
     const shuffled = buildShuffledQuestions(selectedCat);
-    // update refs immediately (state update is async)
-    qsRef.current    = shuffled;
-    qIdxRef.current  = 0;
+    qsRef.current        = shuffled;
+    qIdxRef.current      = 0;
     acertadasRef.current = new Set();
-    qPtsRef.current  = 0;
-    pontosRef.current = 0;
-    streakRef.current = 0;
+    qPtsRef.current      = 0;
+    pontosRef.current    = 0;
+    streakRef.current    = 0;
 
     setCat(selectedCat);
     setQs(shuffled);
@@ -250,9 +226,6 @@ export default function SporcleMZ({ onBack }) {
     setPontos(0);
     setStreak(0);
     setResultados([]);
-    setBlurCount(0);
-    setCompromised(false);
-    setAntiPaused(false);
     setAcertadas(new Set());
     setInput("");
     setFeedback(null);
@@ -261,19 +234,20 @@ export default function SporcleMZ({ onBack }) {
       localStorage.setItem(LS_RULES, "1");
       setPhase("rules");
     } else {
-      setPhase("playing");
-      setTimeout(() => { startTimer(shuffled[0]); inputRef.current?.focus(); }, 50);
+      setPhase("passPhone");
     }
   }
 
   function beginPlaying() {
     setPhase("playing");
-    setTimeout(() => { startTimer(qsRef.current[0]); inputRef.current?.focus(); }, 50);
+    setTimeout(() => {
+      startTimer(qsRef.current[qIdxRef.current]);
+      inputRef.current?.focus();
+    }, 50);
   }
 
-  // ── submit answer ────────────────────────────────────────
   function handleSubmit() {
-    if (!input.trim() || phaseRef.current !== "playing" || antiPaused) return;
+    if (!input.trim() || phase !== "playing") return;
     const q = qsRef.current[qIdxRef.current];
     if (!q) return;
 
@@ -281,48 +255,47 @@ export default function SporcleMZ({ onBack }) {
       input, q.respostas_aceites, acertadasRef.current
     );
 
+    const ci = currentPlayerIdxRef.current;
+
     if (resultado === "acerto") {
-      const chave = `grupo_${grupoAcertadoIndex}`;
-      const newAcertadas = new Set(acertadasRef.current);
-      newAcertadas.add(chave);
-      setAcertadas(newAcertadas);
-      acertadasRef.current = newAcertadas;
+      const chave    = `grupo_${grupoAcertadoIndex}`;
+      const newAcert = new Set(acertadasRef.current);
+      newAcert.add(chave);
+      setAcertadas(newAcert);
+      acertadasRef.current = newAcert;
 
       const pts = calcSoloPoints(timeLeft, q.tempo, streakRef.current);
-      qPtsRef.current  += pts;
+      qPtsRef.current   += pts;
       pontosRef.current += pts;
       setPontos(pontosRef.current);
       streakRef.current++;
       setStreak(streakRef.current);
-
       setFeedback({ tipo: "acerto", msg: `✅ Correcto! +${pts} pts` });
       setInput("");
 
       if (q.tipo === "lista") {
         const limit = q.total ?? q.respostas_aceites.length;
-        if (newAcertadas.size >= limit) {
-          setResultados(prev => [...prev, { q, acertadas: newAcertadas, pontos: qPtsRef.current }]);
+        if (newAcert.size >= limit) {
+          setResultados(prev => [...prev, { q, acertadas: newAcert, pontos: qPtsRef.current, playerName: playersRef.current[ci] }]);
           setTimeout(() => advanceQuestion(), 1000);
         }
       } else {
-        setResultados(prev => [...prev, { q, acertadas: newAcertadas, pontos: qPtsRef.current }]);
+        setResultados(prev => [...prev, { q, acertadas: newAcert, pontos: qPtsRef.current, playerName: playersRef.current[ci] }]);
         setTimeout(() => advanceQuestion(), 1200);
       }
 
     } else if (resultado === "quase") {
       setFeedback({ tipo: "quase", msg: `🤔 Quase! Talvez "${sugestao}"?` });
-
     } else if (resultado === "duplicado") {
       setFeedback({ tipo: "duplicado", msg: "Já disseste essa!" });
       setInput("");
-
     } else {
       streakRef.current = 0;
       setStreak(0);
       setFeedback({ tipo: "erro", msg: "❌ Errado" });
       setInput("");
       if (q.tipo === "resposta_curta") {
-        setResultados(prev => [...prev, { q, acertadas: new Set(), pontos: 0 }]);
+        setResultados(prev => [...prev, { q, acertadas: new Set(), pontos: 0, playerName: playersRef.current[ci] }]);
         setTimeout(() => advanceQuestion(), 1500);
       }
     }
@@ -337,11 +310,15 @@ export default function SporcleMZ({ onBack }) {
   const timerColor     = timeLeft > (q?.tempo ?? 15) * 0.5 ? "#00e5b0"
                        : timeLeft > (q?.tempo ?? 15) * 0.2 ? "#f97316"
                        : "#ef4444";
+  const currentPlayer = players[currentPlayerIdx] ?? "";
+  const currentScore  = (playerScores[currentPlayerIdx] ?? 0) + pontos;
 
   // ═══════════════════════════════════════════════════════
-  // CAT SELECT
+  // SETUP — enter player names
   // ═══════════════════════════════════════════════════════
-  if (phase === "catSelect") {
+  if (phase === "setup") {
+    const filled   = nameDrafts.filter(n => n.trim().length > 0);
+    const canStart = filled.length >= 2;
     return (
       <div className="appBg">
         <div className="shell shellGame">
@@ -354,15 +331,77 @@ export default function SporcleMZ({ onBack }) {
             <div className="timerPill">🧩</div>
           </header>
           <main className="gameMain" style={{ gap: 14 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 42 }}>👥</div>
+              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 8 }}>Quem vai jogar?</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 4 }}>
+                2 a 6 jogadores · Passa o telemóvel
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {nameDrafts.map((name, i) => (
+                <input
+                  key={i}
+                  value={name}
+                  onChange={e => {
+                    const next = [...nameDrafts];
+                    next[i] = e.target.value.slice(0, 20);
+                    setNameDrafts(next);
+                  }}
+                  placeholder={`Jogador ${i + 1}${i < 2 ? " *" : ""}`}
+                  className="niceInput"
+                  autoComplete="off"
+                  maxLength={20}
+                  style={{ fontSize: 15 }}
+                />
+              ))}
+            </div>
+            {!canStart && (
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,.35)", textAlign: "center" }}>
+                Precisas de pelo menos 2 jogadores
+              </div>
+            )}
+            <button
+              className="btnPrimary"
+              disabled={!canStart}
+              onClick={() => setPhase("catSelect")}
+              type="button"
+              style={{ marginTop: 8, opacity: canStart ? 1 : 0.4 }}
+            >
+              ▶ Continuar
+            </button>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // CAT SELECT
+  // ═══════════════════════════════════════════════════════
+  if (phase === "catSelect") {
+    const playerList = nameDrafts.filter(n => n.trim()).map(n => n.trim());
+    return (
+      <div className="appBg">
+        <div className="shell shellGame">
+          <header className="gameHeader">
+            <button className="btnGhost" onClick={() => setPhase("setup")} type="button">← Voltar</button>
+            <div className="headerTitleBlock">
+              <div className="h1Brand">MZ Party Games</div>
+              <div className="h2Game">Sporcle MZ</div>
+            </div>
+            <div className="timerPill">🧩</div>
+          </header>
+          <main className="gameMain" style={{ gap: 14 }}>
             <div style={{ textAlign: "center", marginBottom: 4 }}>
               <div style={{ fontSize: 42 }}>🧩</div>
-              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 8 }}>Sporcle MZ</div>
+              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 8 }}>Escolhe a categoria</div>
               <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 4 }}>
-                Quiz cronometrado · Escolhe a categoria
+                {playerList.join(" · ")}
               </div>
             </div>
             {SPORCLE_CATS.map(c => (
-              <button key={c.id} type="button" onClick={() => startGame(c)} style={{
+              <button key={c.id} type="button" onClick={() => startCat(c)} style={{
                 background: `${c.cor}14`, border: `1.5px solid ${c.cor}44`,
                 borderRadius: 16, padding: "14px 16px", textAlign: "left",
                 cursor: "pointer", display: "flex", alignItems: "center", gap: 14,
@@ -385,7 +424,7 @@ export default function SporcleMZ({ onBack }) {
   }
 
   // ═══════════════════════════════════════════════════════
-  // RULES (first time only)
+  // RULES — shown once on first play
   // ═══════════════════════════════════════════════════════
   if (phase === "rules") {
     return (
@@ -395,40 +434,83 @@ export default function SporcleMZ({ onBack }) {
             <button className="btnGhost" onClick={() => setPhase("catSelect")} type="button">← Voltar</button>
             <div className="headerTitleBlock">
               <div className="h1Brand">MZ Party Games</div>
-              <div className="h2Game">Sporcle MZ · Regras</div>
+              <div className="h2Game">Sporcle MZ · Como Jogar</div>
             </div>
             <div className="timerPill">📖</div>
           </header>
           <main className="gameMain" style={{ gap: 14 }}>
             <div style={{ fontSize: 42, textAlign: "center" }}>🧩</div>
-            <div style={{ fontWeight: 900, fontSize: 18, textAlign: "center" }}>Como jogar</div>
+            <div style={{ fontWeight: 900, fontSize: 18, textAlign: "center" }}>Como funciona</div>
             <ol style={{ paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
               {[
-                "Tens um timer por pergunta — responde antes de acabar.",
-                "Escreve a resposta e carrega Enter para verificar.",
-                "Perguntas de LISTA: acerta o maior número de respostas possível.",
-                "Perguntas CURTAS: uma tentativa; se errares o timer continua.",
-                "Respostas 'quase certas' mostram uma dica — tenta outra vez!",
-                "Não colas, não sais da janela — anti-cheat ativo! 😤",
-                "Streak de 3+ acertos seguidos dá bónus de pontos. 🔥",
+                { icon: "📱", text: "Cada jogador joga à sua vez — o telemóvel passa de mão em mão." },
+                { icon: "⏱️", text: "Cada pergunta tem um timer. Responde antes de acabar!" },
+                { icon: "❓", text: "Perguntas CURTAS: uma tentativa. Se errares, a pergunta acaba." },
+                { icon: "📋", text: "Perguntas de LISTA: acerta o maior número de respostas possível dentro do tempo." },
+                { icon: "🤔", text: "Resposta 'quase certa' mostra uma dica — tenta outra vez!" },
+                { icon: "🔥", text: "3+ acertos seguidos dão bónus de pontos. O streak reinicia em cada turno." },
+                { icon: "🏆", text: "Ganha quem tiver mais pontos no fim de todas as perguntas." },
               ].map((r, i) => (
                 <li key={i} style={{
                   display: "flex", gap: 12, alignItems: "flex-start",
                   background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)",
                   borderRadius: 12, padding: "10px 14px",
                 }}>
-                  <span style={{
-                    width: 22, height: 22, borderRadius: "50%",
-                    background: "rgba(124,93,250,.3)", border: "1px solid rgba(124,93,250,.5)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, fontWeight: 900, flexShrink: 0,
-                  }}>{i + 1}</span>
-                  <span style={{ fontSize: 13, lineHeight: 1.4 }}>{r}</span>
+                  <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{r.icon}</span>
+                  <span style={{ fontSize: 13, lineHeight: 1.5 }}>{r.text}</span>
                 </li>
               ))}
             </ol>
-            <button className="btnPrimary" style={{ marginTop: 8 }} onClick={beginPlaying} type="button">
+            <button className="btnPrimary" style={{ marginTop: 8 }} onClick={() => setPhase("passPhone")} type="button">
               ▶ Começar
+            </button>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // PASS PHONE — interstitial between turns
+  // ═══════════════════════════════════════════════════════
+  if (phase === "passPhone") {
+    return (
+      <div className="appBg">
+        <div className="shell shellGame">
+          <main className="gameMain" style={{ alignItems: "center", justifyContent: "center", gap: 24, flex: 1 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,.4)", fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 12 }}>
+                Pergunta {qIdx + 1} / {qs.length}
+              </div>
+              <div style={{ fontSize: 56 }}>📱</div>
+              <div style={{ fontWeight: 900, fontSize: 28, marginTop: 12, lineHeight: 1.2 }}>
+                {currentPlayer}
+              </div>
+              <div style={{ fontSize: 14, color: "rgba(255,255,255,.5)", marginTop: 6 }}>
+                é a tua vez!
+              </div>
+            </div>
+
+            <div style={{
+              background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)",
+              borderRadius: 14, padding: "12px 16px", width: "100%",
+            }}>
+              {players.map((name, i) => {
+                const isMe = i === currentPlayerIdx;
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: i < players.length - 1 ? 6 : 0 }}>
+                    <span style={{ flex: 1, fontSize: 14, fontWeight: isMe ? 900 : 500, opacity: isMe ? 1 : 0.45 }}>{name}</span>
+                    <span style={{ fontWeight: 900, fontSize: 14, color: isMe ? "#00e5b0" : "rgba(255,255,255,.4)" }}>
+                      {playerScores[i] ?? 0} pts
+                    </span>
+                    {isMe && <span style={{ fontSize: 11, fontWeight: 900, color: "#7c5dfa" }}>←</span>}
+                  </div>
+                );
+              })}
+            </div>
+
+            <button className="btnPrimary" onClick={beginPlaying} type="button" style={{ width: "100%" }}>
+              ▶ Estou pronto!
             </button>
           </main>
         </div>
@@ -440,7 +522,11 @@ export default function SporcleMZ({ onBack }) {
   // FINISHED
   // ═══════════════════════════════════════════════════════
   if (phase === "finished") {
-    const totalAcertos = resultados.reduce((s, r) => s + r.acertadas.size, 0);
+    const sorted = players
+      .map((name, i) => ({ name, score: playerScores[i] ?? 0 }))
+      .sort((a, b) => b.score - a.score);
+    const winner = sorted[0];
+
     return (
       <div className="appBg">
         <div className="shell shellGame">
@@ -455,61 +541,26 @@ export default function SporcleMZ({ onBack }) {
           <main className="gameMain" style={{ gap: 12 }}>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 48 }}>🏆</div>
-              <div style={{ fontWeight: 900, fontSize: 22, marginTop: 8 }}>{pontos} pontos</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 4 }}>
-                {totalAcertos} resposta{totalAcertos !== 1 ? "s" : ""} correct{totalAcertos !== 1 ? "as" : "a"}
-                {compromised && " · ⚠️ Anti-cheat ativado"}
-              </div>
+              <div style={{ fontWeight: 900, fontSize: 22, marginTop: 8 }}>{winner?.name} venceu!</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 4 }}>{cat?.nome}</div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {resultados.map(({ q: rq, acertadas: ra, pontos: rp }, i) => !rq ? null : (
-                <div key={i} style={{
-                  background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)",
-                  borderRadius: 12, padding: "10px 14px",
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {sorted.map((p, i) => (
+                <div key={p.name} style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "10px 14px", borderRadius: 12,
+                  background: i === 0 ? "rgba(251,191,36,.08)" : "rgba(255,255,255,.03)",
+                  border: `1px solid ${i === 0 ? "rgba(251,191,36,.3)" : "rgba(255,255,255,.06)"}`,
                 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,.5)", marginBottom: 4 }}>
-                    {rq.tipo === "lista" ? "📋" : "❓"} {rq.pergunta}
-                  </div>
-                  <div style={{ fontSize: 13, display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: ra.size > 0 ? "#4ade80" : "rgba(255,255,255,.3)" }}>
-                      {ra.size > 0 ? `✓ ${ra.size} acerto${ra.size > 1 ? "s" : ""}` : "✗ Nenhum acerto"}
-                    </span>
-                    <span style={{ fontWeight: 900, color: "#00e5b0" }}>+{rp} pts</span>
-                  </div>
+                  <span style={{ fontSize: 18, width: 28 }}>
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}º`}
+                  </span>
+                  <span style={{ flex: 1, fontWeight: 700, fontSize: 15 }}>{p.name}</span>
+                  <span style={{ fontWeight: 900, fontSize: 15, color: "#00e5b0" }}>{p.score} pts</span>
                 </div>
               ))}
             </div>
-
-            {/* Local leaderboard */}
-            {leaderboard.length > 0 && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 8 }}>
-                  Top {Math.min(leaderboard.length, MAX_SCORES)} · melhor pontuação
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  {leaderboard.map((entry, i) => {
-                    const isThis = i === leaderboard.findIndex(e => e.score === pontos && e.cat === cat?.nome);
-                    return (
-                      <div key={i} style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "6px 10px", borderRadius: 9,
-                        background: isThis ? "rgba(0,229,176,.08)" : "rgba(255,255,255,.03)",
-                        border: `1px solid ${isThis ? "rgba(0,229,176,.3)" : "rgba(255,255,255,.06)"}`,
-                      }}>
-                        <span style={{ fontSize: 12, width: 20, color: i === 0 ? "#fbbf24" : "rgba(255,255,255,.3)", fontWeight: 900 }}>
-                          {i === 0 ? "🥇" : `${i + 1}`}
-                        </span>
-                        <span style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,.5)" }}>{entry.cat} · {entry.date}</span>
-                        <span style={{ fontSize: 13, fontWeight: 900, color: isThis ? "#00e5b0" : "rgba(255,255,255,.6)" }}>
-                          {entry.score} pts
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
               <button className="btnPrimary" onClick={() => { timerRef.current.stop(); setPhase("catSelect"); }} type="button">
@@ -542,23 +593,15 @@ export default function SporcleMZ({ onBack }) {
 
         <main className="gameMain" style={{ gap: 10 }}>
 
-          {/* Anti-cheat overlay */}
-          {antiPaused && (
-            <div style={{
-              position: "fixed", inset: 0, background: "rgba(0,0,0,.85)",
-              zIndex: 100, display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center", gap: 16, padding: 24,
-            }}>
-              <div style={{ fontSize: 42 }}>😤</div>
-              <div style={{ fontWeight: 900, fontSize: 18, textAlign: "center" }}>Anti-cheat ativo</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,.55)", textAlign: "center" }}>
-                Saíste da janela {blurCount}×{compromised ? " · Streak anulada!" : ""}
-              </div>
-              <button className="btnPrimary" onClick={resumeFromAntiCheat} type="button" style={{ width: "100%", maxWidth: 300 }}>
-                Continuar
-              </button>
-            </div>
-          )}
+          {/* Current player chip */}
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            background: "rgba(124,93,250,.1)", border: "1px solid rgba(124,93,250,.25)",
+            borderRadius: 10, padding: "6px 12px",
+          }}>
+            <span style={{ fontWeight: 900, fontSize: 14, color: "#c4b5fd" }}>{currentPlayer}</span>
+            <span style={{ fontWeight: 900, fontSize: 13, color: "#00e5b0" }}>{currentScore} pts</span>
+          </div>
 
           {/* Progress dots */}
           <div style={{ display: "flex", gap: 4 }}>
@@ -570,14 +613,12 @@ export default function SporcleMZ({ onBack }) {
             ))}
           </div>
 
-          {/* Timer bar */}
-          <TimerBar remaining={timeLeft} total={q?.tempo ?? 1} active={true} />
+          <TimerBar remaining={timeLeft} total={q?.tempo ?? 1} />
 
-          {/* Score + streak */}
+          {/* Question count + streak */}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-            <span style={{ fontWeight: 900, color: "#00e5b0" }}>{pontos} pts</span>
+            <span style={{ color: "rgba(255,255,255,.4)" }}>Pergunta {qIdx + 1} / {qs.length}</span>
             {streak >= 3 && <span style={{ fontWeight: 900, color: "#f97316" }}>🔥 ×{streak}</span>}
-            <span style={{ color: "rgba(255,255,255,.4)" }}>{qIdx + 1} / {qs.length}</span>
           </div>
 
           {/* Question card */}
@@ -603,7 +644,6 @@ export default function SporcleMZ({ onBack }) {
             </div>
           )}
 
-          {/* Feedback */}
           <FeedbackBanner feedback={feedback} />
 
           {/* Input */}
