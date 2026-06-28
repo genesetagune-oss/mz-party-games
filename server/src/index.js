@@ -165,13 +165,13 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     const player = room.players.get(socket.id);
     if (!player?.isHost) return;
 
-    const valid = ["thirtySeconds", "xbola", "whoIsWho", "sabeTudo", "sporcleMZ"];
+    const valid = ["thirtySeconds", "whoIsWho", "sabeTudo", "sporcleMZ"];
     if (!valid.includes(gameType)) return;
 
     room.engine?.destroy?.();
     room.gameType = gameType;
     room.status = "lobby";
-    room.config.maxPlayers = gameType === "xbola" ? 2 : 8;
+    room.config.maxPlayers = 8;
     room.closed = room.players.size >= room.config.maxPlayers;
     room.engine = createEngine(gameType, { io, roomCode: code, room });
 

@@ -3,13 +3,11 @@ import { socket } from "./socket";
 import { playSound, setMuted, isMuted } from "./utils/sound";
 
 import ThirtySecondsOnline from "./games/ThirtySecondsOnline";
-import XbolaOnline         from "./games/XbolaOnline";
 import WhoIsWhoOnline      from "./games/WhoIsWhoOnline";
 
 import ThirtySecondsOffline from "../games/ThirtySeconds.jsx";
 import WhoIsWhoOffline      from "../games/WhoIsWho.jsx";
 import ImposterOffline      from "../games/Imposter.jsx";
-import XbolaOffline         from "../games/Xbola.jsx";
 import NuncaNuncaOffline    from "../games/NuncaNunca.jsx";
 import FazOuBebeOffline     from "../games/FazOuBebe.jsx";
 import SabeTudoOffline      from "../games/SabeTudo.jsx";
@@ -38,16 +36,6 @@ const GAME_META = {
       "Cada palavra certa vale 1 ponto. Podes trocar a carta 2x por turno.",
       "Passa a vez à equipa adversária quando o tempo acabar.",
       "Primeira equipa a chegar ao objetivo vence! 🏆",
-    ],
-  },
-  xbola: {
-    icon: "⚽", name: "X-Bola Infinito", color: "#00e5b0", minPlayers: 2, maxPlayers: 2,
-    rules: [
-      "Jogo da velha para 2 jogadores: X vs O.",
-      "Cada jogador só pode ter 3 marcas no tabuleiro.",
-      "Ao jogar a 4ª marca, a mais antiga desaparece automaticamente.",
-      "Faz uma linha de 3 para ganhar a ronda.",
-      "Primeiro a ganhar 3 rondas vence o duelo! 🏆",
     ],
   },
   whoIsWho: {
@@ -266,13 +254,13 @@ function TeamOverlay({ mode, onConfirm, onCancel }) {
   );
 }
 
-function GameSwitchOverlay({ onSwitch, onCancel }) {
+function GameSwitchOverlay({ onSwitch, onCancel, currentGame }) {
   const games = [
     { key: "thirtySeconds", icon: "⏱️", name: "30 Segundos" },
     { key: "whoIsWho",      icon: "🎭", name: "Quem Sou Eu?" },
     { key: "sabeTudo",      icon: "🧠", name: "Sabe Tudo?" },
     { key: "sporcleMZ",     icon: "🧩", name: "Sporcle MZ" },
-  ];
+  ].filter(g => g.key !== currentGame);
   return (
     <div className="noticeOverlay" onClick={onCancel}>
       <div className="noticeCard" onClick={e => e.stopPropagation()} style={{ gap: 10, maxWidth: 340 }}>
@@ -364,7 +352,7 @@ function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
   const meta    = GAME_META[room?.gameType] || {};
   const players = room?.players || [];
   const isHost  = players.find(p => p.id === socket.id)?.isHost;
-  const hasTeams = room?.gameType !== "xbola";
+  const hasTeams = true;
   const teamA   = players.filter(p => p.team === "A");
   const teamB   = players.filter(p => p.team === "B");
   const currentCat = gamePublic?.category ?? "GLOBAL";
@@ -620,7 +608,6 @@ export default function App() {
             setLoading("A entrar na sala…");
             socket.emit("room:join", { roomCode: deepCode, name: n, team });
           };
-          if (gt === "xbola") { doJoin("B"); return; }
           setPendingJoinCode(deepCode); setOverlayMode("JOIN"); setShowTeamOverlay(true);
         });
       };
@@ -736,10 +723,6 @@ export default function App() {
     if (!connected) return showNotice("Servidor","Desconectado.");
     showRulesFor("thirtySeconds", () => { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:name.trim()||"Player",team:"A"}); });
   };
-  const createXBolaRoom = () => {
-    if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("xbola", () => { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"xbola",name:name.trim()||"Player",team:"A"}); });
-  };
   const createWhoIsWhoRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
     showRulesFor("whoIsWho", () => { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"whoIsWho",name:name.trim()||"Player",team:"A"}); });
@@ -769,7 +752,7 @@ export default function App() {
       if (!res?.ok) { setLoading(null); showNotice("Join","Sala não encontrada."); return; }
       const gt = res.gameType;
       showRulesFor(gt, () => {
-        if (gt === "xbola" || gt === "sabeTudo" || gt === "sporcleMZ") {
+        if (gt === "sabeTudo" || gt === "sporcleMZ") {
           setLoading("A entrar na sala…");
           socket.emit("room:join",{roomCode:code,name:playerName,team:"A"});
           return;
@@ -802,7 +785,7 @@ export default function App() {
       {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} />}
       {rulesFor  && <RulesModal gameType={rulesFor} onClose={closeRules} onPlay={confirmRules} />}
       {showSporcleMZConfig && <SporcleMZConfigOverlay onConfirm={confirmSporcleMZConfig} onCancel={() => setShowSporcleMZConfig(false)} />}
-      {switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} />}
+      {switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} currentGame={room?.gameType} />}
       {guestWaiting && (
         <div style={{ position:"fixed", inset:0, zIndex:2000, background:"rgba(7,9,15,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
           <div className="waitingHostDot" style={{ width:14, height:14 }} />
@@ -826,7 +809,6 @@ export default function App() {
     if (offlineGame === "30s")       return <ThirtySecondsOffline onBack={back} />;
     if (offlineGame === "who")       return <WhoIsWhoOffline      onBack={back} />;
     if (offlineGame === "imposter")  return <ImposterOffline      onBack={back} />;
-    if (offlineGame === "xbola")     return <XbolaOffline         onBack={back} />;
     if (offlineGame === "nunca")     return <NuncaNuncaOffline    onBack={back} />;
     if (offlineGame === "fazbebe")   return <FazOuBebeOffline     onBack={back} />;
     if (offlineGame === "sabetudo")  return <SabeTudoOffline      onBack={back} />;
@@ -842,7 +824,6 @@ export default function App() {
   if (room && inLobby) return <><LobbyScreen room={room} roomCode={roomCode} onLeave={() => leaveRoom(true)} gamePublic={gamePublic} onRules={() => openRulesOnly(room.gameType)} /><Overlays /></>;
 
   if (room?.gameType === "thirtySeconds") return <><ThirtySecondsOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
-  if (room?.gameType === "xbola")         return <><XbolaOnline         room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
   if (room?.gameType === "whoIsWho")      return <><WhoIsWhoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
   if (room?.gameType === "sabeTudo")      return <><SabeTudoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
 
@@ -926,7 +907,6 @@ export default function App() {
         <section className="panel">
           <div style={{display:"grid",gap:10}}>
             <GameCard icon="⏱️" title="30 Segundos"    sub="CulturaGeral_MZ ou Global" onClick={create30sRoom}      badge="2+ jogadores" color="#7c5dfa" />
-            <GameCard icon="⚽" title="X-Bola"          sub="Jogo da velha infinito"    onClick={createXBolaRoom}    badge="2 jogadores"  color="#00e5b0" />
             <GameCard icon="🎭" title="Quem Sou Eu?"   sub="Adivinha com dicas · 90s"  onClick={createWhoIsWhoRoom} badge="2+ jogadores" color="#4a9eff" />
             <GameCard icon="🧩" title="Sporcle MZ"    sub="Quiz cronometrado · 3 temas" onClick={createSporcleMZRoom} badge="2+ jogadores" color="#7c5dfa" />
           </div>
@@ -984,7 +964,6 @@ export default function App() {
             <GameCard icon="⏱️" title="30 Segundos"          sub="CulturaGeral_MZ ou Global · 30s" onClick={() => goOffline("30s","thirtySeconds")} />
             <GameCard icon="🎭" title="Quem Sou Eu?"         sub="Adivinha com dicas"               onClick={() => goOffline("who","whoIsWho")} />
             <GameCard icon="🕵️" title="Quem Está a Mentir?"  sub="Deduções · tensão · 5–10 min"    onClick={() => goOffline("imposter", null)} />
-            <GameCard icon="⚽" title="X-Bola"               sub="Jogo da velha infinito"           onClick={() => goOffline("xbola","xbola")} />
             <GameCard icon="🧩" title="Sporcle MZ"  sub="Quiz cronometrado · Solo"         onClick={() => goOffline("sporcle", null)} />
             <GameCard icon="🙈" title="Nunca Nunca"  sub="Confissões · quem fez o quê?"   comingSoon />
             <GameCard icon="🍺" title="Faz ou Bebe" sub="Desafios · Suave / Médio / 🔞" comingSoon />

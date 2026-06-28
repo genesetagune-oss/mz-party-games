@@ -13,8 +13,7 @@ export class RoomManager {
 
     const team = hostTeam === "A" || hostTeam === "B" ? hostTeam : "A";
 
-    // ✅ X-Bola = 2 players (bloqueia 3º jogador)
-    const maxPlayers = gameType === "xbola" ? 2 : 8;
+    const maxPlayers = 8;
 
     const room = {
       code,

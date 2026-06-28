@@ -1,8 +1,11 @@
 import { BaseEngine } from "./baseEngine.js";
 import { verificarResposta } from "./sporcleMZVerification.js";
 
-const REVEAL_SECS = 4;
-const TOTAL_Q     = 5;
+const WAGER_SECS   = 10;
+const VOTE_SECS    = 15;
+const REVEAL_SECS  = 4;
+const NORMAL_Q     = 10;
+const TOTAL_ROUNDS = 11;
 
 const TEAM_DEFS = [
   { id: "A", name: "Vermelhos", color: "#EF4444" },
@@ -12,7 +15,7 @@ const TEAM_DEFS = [
 ];
 
 const BANK = [
-  // ── CIDADES & GEOGRAFIA ──────────────────────────────────
+  // ── BAIRROS E CIDADES ─────────────────────────────────────
   { id:"c01", tipo:"resposta_curta", tempo:15, pergunta:"Qual é a capital de Moçambique?", respostas_aceites:[["maputo","lourenco marques","lourenço marques"]] },
   { id:"c02", tipo:"resposta_curta", tempo:15, pergunta:"Capital da província de Sofala?", respostas_aceites:[["beira","cidade da beira"]] },
   { id:"c03", tipo:"resposta_curta", tempo:15, pergunta:"Capital da província de Nampula?", respostas_aceites:[["nampula"]] },
@@ -24,74 +27,69 @@ const BANK = [
   { id:"c09", tipo:"resposta_curta", tempo:15, pergunta:"Capital da província de Cabo Delgado?", respostas_aceites:[["pemba","porto amelia"]] },
   { id:"c10", tipo:"resposta_curta", tempo:15, pergunta:"Capital da província de Inhambane?", respostas_aceites:[["inhambane"]] },
   { id:"c11", tipo:"resposta_curta", tempo:15, pergunta:"Em que província fica a Barragem de Cahora Bassa?", respostas_aceites:[["tete"]] },
-  { id:"c12", tipo:"resposta_curta", tempo:15, pergunta:"Qual é a segunda maior cidade de Moçambique?", respostas_aceites:[["matola"]] },
-  { id:"c13", tipo:"resposta_curta", tempo:15, pergunta:"Qual cidade costeira é conhecida pelas praias de coral em Inhambane?", respostas_aceites:[["tofo","praia do tofo"]] },
-  { id:"c14", tipo:"resposta_curta", tempo:15, pergunta:"Em que cidade fica o Estádio do Zimpeto?", respostas_aceites:[["maputo"]] },
-  { id:"c15", tipo:"resposta_curta", tempo:15, pergunta:"Qual praia moçambicana fica mesmo na fronteira com a África do Sul e é destino famoso de sul-africanos?", respostas_aceites:[["ponta do ouro"]] },
-  { id:"c16", tipo:"lista", tempo:60, total:6, pergunta:"Nomeia os 6 países que fazem fronteira com Moçambique", respostas_aceites:[["tanzania","tanzânia","tanzánia"],["malawi","malaui","malaví"],["zambia","zâmbia","zámbia"],["zimbabwe","zimbabué","zimbabue"],["eswatini","suazilandia","swazilândia"],["africa do sul","south africa"]] },
-  { id:"c17", tipo:"lista", tempo:60, total:5, pergunta:"Nomeia 5 ilhas ou arquipélagos famosos de Moçambique", respostas_aceites:[["ilha de mocambique","ilha de moçambique","ilha mozambique"],["bazaruto","ilha do bazaruto"],["quirimbas","arquipelago das quirimbas"],["inhaca","ilha da inhaca"],["ibo","ilha do ibo"]] },
-  { id:"c18", tipo:"lista", tempo:60, total:5, pergunta:"Nomeia 5 bairros populares de Maputo", respostas_aceites:[["xipamanine"],["malhazine"],["polana","polana cimento","polana caniço"],["hulene"],["zimpeto"],["chamanculo"],["alto mae","alto maé"],["sommerschield"],["costa do sol"]] },
-  { id:"c19", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 rios importantes de Moçambique", respostas_aceites:[["zambeze","zambezi","rio zambeze"],["limpopo","rio limpopo"],["save","rio save"],["incomati","incomáti"],["rovuma","rio rovuma"],["buzi","rio buzi"]] },
-  { id:"c20", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 províncias do norte de Moçambique", respostas_aceites:[["niassa"],["cabo delgado"],["nampula"],["zambezia","zambézia"]] },
-  { id:"c21", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 províncias do sul de Moçambique", respostas_aceites:[["maputo","maputo provincia","maputo cidade"],["gaza"],["inhambane"]] },
-  { id:"c22", tipo:"lista", tempo:60, total:6, pergunta:"Nomeia 6 destinos turísticos de praias em Moçambique", respostas_aceites:[["tofo","praia do tofo"],["vilanculos","vilanculo"],["ponta do ouro"],["pemba"],["bazaruto"],["beira"],["inhambane"],["nacala"]] },
-  { id:"c23", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 portos marítimos importantes de Moçambique", respostas_aceites:[["maputo","porto de maputo","porto maputo"],["beira","porto da beira","porto beira"],["nacala","porto de nacala","porto nacala"],["pemba"],["quelimane"]] },
-  { id:"c24", tipo:"lista", tempo:60, total:5, pergunta:"Nomeia 5 cidades costeiras de Moçambique", respostas_aceites:[["maputo"],["beira"],["nacala"],["pemba"],["quelimane"],["inhambane"],["mocambique","ilha de mocambique"]] },
-  { id:"c25", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 parques nacionais ou reservas naturais de Moçambique", respostas_aceites:[["gorongosa","parque da gorongosa"],["niassa","reserva do niassa"],["zinave"],["banhine"],["bazaruto","parque nacional do bazaruto"],["quirimbas","parque nacional das quirimbas"]] },
+  { id:"c12", tipo:"resposta_curta", tempo:15, pergunta:"Qual é a segunda maior cidade de Moçambique?", respostas_aceites:[["matola","beira"]] },
+  { id:"c13", tipo:"resposta_curta", tempo:15, pergunta:"Qual cidade costeira é conhecida pelas praias de coral e resorts em Inhambane?", respostas_aceites:[["tofo","praia do tofo"]] },
+  { id:"c14", tipo:"resposta_curta", tempo:15, pergunta:"Em que cidade fica o maior estádio de Moçambique (Estádio do Zimpeto)?", respostas_aceites:[["maputo"]] },
+  { id:"c15", tipo:"resposta_curta", tempo:15, pergunta:"Qual cidade moçambicana faz fronteira com a África do Sul e é famosa pelos seus casinos?", respostas_aceites:[["ponta do ouro"]] },
+  { id:"c16", tipo:"lista", tempo:60, total:6, pergunta:"Nomeia os 6 países que fazem fronteira com Moçambique", respostas_aceites:[["tanzania","tanzânia","tanzánia"],["malawi","malaui","malaví"],["zambia","zâmbia","zámbia"],["zimbabwe","zimbabué","zimbabue","zimbaue"],["eswatini","suazilandia","swazilândia","suazilândia"],["africa do sul","south africa"]] },
+  { id:"c17", tipo:"lista", tempo:60, total:5, pergunta:"Nomeia 5 ilhas ou arquipélagos famosos de Moçambique", respostas_aceites:[["ilha de mocambique","ilha de moçambique","ilha moçambique","ilha mozambique"],["bazaruto","ilha do bazaruto","arquipelago do bazaruto"],["quirimbas","arquipelago das quirimbas"],["inhaca","ilha da inhaca"],["ibo","ilha do ibo"]] },
+  { id:"c18", tipo:"lista", tempo:60, total:5, pergunta:"Nomeia 5 bairros populares de Maputo", respostas_aceites:[["xipamanine"],["malhazine"],["polana","polana cimento","polana canigo","polana caniço"],["hulene"],["zimpeto"],["chamanculo"],["alto mae","alto maé"],["sommerschield"],["costa do sol"],["albasine"],["t3"],["mafalala"],["laulane"],["mahotas"],["triunfo"]] },
+  { id:"c19", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 rios importantes de Moçambique", respostas_aceites:[["zambeze","zambezi","rio zambeze"],["limpopo","rio limpopo"],["save","rio save"],["incomati","incomáti","rio incomati"],["lugela"],["rovuma","rio rovuma"],["buzi","rio buzi"]] },
+  { id:"c20", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia as 3 províncias do norte de Moçambique", respostas_aceites:[["niassa"],["cabo delgado"],["nampula"]] },
+  { id:"c21", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 províncias do sul de Moçambique", respostas_aceites:[["maputo","maputo cidade","cidade de maputo"],["maputo provincia","provincia de maputo"],["gaza"],["inhambane"]] },
+  { id:"c22", tipo:"lista", tempo:60, total:6, pergunta:"Nomeia 6 destinos turísticos de praias em Moçambique", respostas_aceites:[["tofo","praia do tofo"],["vilanculos","vilanculo","vilankulo"],["ponta do ouro"],["pemba"],["bazaruto"],["beira"],["inhambane"],["nacala"],["bilene","sao martinho do bilene"],["macaneta"]] },
+  { id:"c23", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 distritos municipais de Maputo", respostas_aceites:[["kampfumo","ka mpfumo","ka-mpfumo"],["kamavota","ka mavota","ka-mavota"],["kamubukwana","ka mubukwana"],["kamaxaquene","ka maxaquene"],["kanyaka","ka nyaka","katembe","ka tembe"]] },
+  { id:"c24", tipo:"lista", tempo:60, total:5, pergunta:"Nomeia 5 cidades costeiras de Moçambique", respostas_aceites:[["maputo"],["beira"],["nacala"],["pemba"],["quelimane"],["inhambane"],["mocambique","moçambique","ilha de mocambique"]] },
+  { id:"c25", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 reservas naturais ou parques nacionais de Moçambique", respostas_aceites:[["gorongosa","parque da gorongosa","gorongosa national park"],["niassa","reserva do niassa","reserva nacional do niassa"],["zinave","parque nacional do zinave"],["banhine","parque nacional do banhine"],["bazaruto","parque nacional do bazaruto","arquipelago do bazaruto"],["quirimbas","parque nacional das quirimbas"],["maputo special reserve","reserva do maputo","reserva dos elefantes"]] },
+  { id:"c26", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 praias famosas da província de Inhambane", respostas_aceites:[["tofo","praia do tofo"],["vilankulo","vilanculos"],["barra","praia da barra"],["morrungulo"],["paindane"],["pomene"],["maxixe"]] },
+  { id:"c27", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama a ponte que liga Maputo a Catembe?", respostas_aceites:[["ponte maputo catembe","ponte maputo katembe","ponte da catembe","katembe","catembe"]] },
+  { id:"c28", tipo:"lista", tempo:60, total:4, pergunta:"Nomeia os 4 presidentes de Moçambique", respostas_aceites:[["samora machel","samora"],["joaquim chissano","chissano"],["armando guebuza","guebuza"],["filipe nyusi","nyusi"]] },
+  { id:"c29", tipo:"resposta_curta", tempo:15, pergunta:"Qual é o ponto mais alto de Moçambique?", respostas_aceites:[["monte binga","binga"]] },
+  { id:"c30", tipo:"resposta_curta", tempo:15, pergunta:"Qual é o maior lago de Moçambique?", respostas_aceites:[["lago niassa","niassa","lago malawi","lago nyasa"]] },
+  { id:"c31", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama o aeroporto internacional de Maputo?", respostas_aceites:[["aeroporto samora machel","samora machel","aeroporto de maputo","marechal samora machel"]] },
+  { id:"c32", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia as 4 províncias do centro de Moçambique", respostas_aceites:[["zambezia","zambézia"],["tete"],["manica"],["sofala"]] },
+  { id:"c33", tipo:"resposta_curta", tempo:15, pergunta:"Qual é a maior e mais antiga universidade de Moçambique?", respostas_aceites:[["uem","universidade eduardo mondlane","eduardo mondlane"]] },
+  { id:"c34", tipo:"lista", tempo:45, total:5, pergunta:"Nomeia os 5 países africanos de língua portuguesa (PALOPs)", respostas_aceites:[["angola"],["mocambique","moçambique"],["cabo verde"],["sao tome e principe","são tomé e príncipe","sao tome"],["guine bissau","guiné-bissau","guiné bissau"]] },
+  { id:"c35", tipo:"resposta_curta", tempo:15, pergunta:"Qual cidade moçambicana é Património Mundial da UNESCO?", respostas_aceites:[["ilha de mocambique","ilha de moçambique","ilha mocambique"]] },
 
-  // ── MÚSICA MZ ────────────────────────────────────────────
-  { id:"m01", tipo:"resposta_curta", tempo:15, pergunta:"Qual é o género musical urbano mais popular em Maputo?", respostas_aceites:[["pandza","panda","pandza music"]] },
-  { id:"m02", tipo:"resposta_curta", tempo:15, pergunta:"Qual cantor moçambicano é conhecido como 'Rei da Marrabenta'?", respostas_aceites:[["wazimbo","wazimbo ngungunyane"]] },
-  { id:"m03", tipo:"resposta_curta", tempo:15, pergunta:"Qual género musical usa o instrumento timbila e tem origem na etnia Chopi?", respostas_aceites:[["timbila","musica timbila"]] },
-  { id:"m04", tipo:"resposta_curta", tempo:15, pergunta:"Qual cantora MZ é famosa pela música 'Leve Leve'?", respostas_aceites:[["mingas"]] },
-  { id:"m05", tipo:"resposta_curta", tempo:15, pergunta:"Qual rapper MZ ficou famoso pelo álbum 'Muthiana Omukhulu'?", respostas_aceites:[["azagaia","edson da luz"]] },
+  // ── MÚSICA MZ ─────────────────────────────────────────────
+  { id:"m01", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama o género musical urbano criado em Maputo nos anos 2000?", respostas_aceites:[["pandza"]] },
+  { id:"m02", tipo:"resposta_curta", tempo:15, pergunta:"Qual é o nome do cantor moçambicano conhecido como 'Rei da Marrabenta'?", respostas_aceites:[["wazimbo","wazimbo ngungunyane"]] },
+  { id:"m03", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 artistas conhecidos pelo género pandza", respostas_aceites:[["mr kuka","kuka"],["helio beatz","helio"],["bandjero"],["dj ardiles","ardiles"],["ta basilly","basilly"]] },
+  { id:"m04", tipo:"resposta_curta", tempo:15, pergunta:"Qual cantora MZ ficou famosa pela música 'Mamana'?", respostas_aceites:[["mingas"]] },
+  { id:"m05", tipo:"resposta_curta", tempo:15, pergunta:"Qual rapper MZ ficou famoso pela música 'Povo no Poder'?", respostas_aceites:[["azagaia","edson da luz"]] },
+  { id:"m05b", tipo:"resposta_curta", tempo:15, pergunta:"Qual rapper MZ ficou conhecido por letras de crítica política ao governo Frelimo?", respostas_aceites:[["azagaia","edson da luz"]] },
   { id:"m06", tipo:"resposta_curta", tempo:15, pergunta:"Qual cantora MZ é conhecida pela música 'Djama'?", respostas_aceites:[["neyma"]] },
-  { id:"m07", tipo:"resposta_curta", tempo:15, pergunta:"Qual cantor MZ popularizou a música 'Nguiane'?", respostas_aceites:[["mr bow","mister bow","mrbow"]] },
-  { id:"m08", tipo:"resposta_curta", tempo:15, pergunta:"Qual DJ moçambicano é famoso por produzir Pandza e colaborar com Neyma e Mr. Bow?", respostas_aceites:[["ziqo","dj ziqo"]] },
-  { id:"m09", tipo:"resposta_curta", tempo:15, pergunta:"Qual cantora MZ é conhecida pela música 'Sou Feliz'?", respostas_aceites:[["lizha james","lizha"]] },
+  { id:"m08", tipo:"resposta_curta", tempo:15, pergunta:"Qual DJ moçambicano ficou famoso pela música 'Tseke'?", respostas_aceites:[["dj ziqo","ziqo"]] },
   { id:"m10", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama o género musical tradicional de Cabo Delgado dançado em celebrações islâmicas?", respostas_aceites:[["tufo"]] },
-  { id:"m11", tipo:"resposta_curta", tempo:15, pergunta:"Qual cantor MZ é conhecido pela música 'Soluço'?", respostas_aceites:[["stewart sukuma","sukuma"]] },
-  { id:"m12", tipo:"resposta_curta", tempo:15, pergunta:"Qual artista MZ é conhecida por 'Meu Amor' e é um dos rostos do AfroPoP em MZ?", respostas_aceites:[["tamyris","tamyris moiane"]] },
-  { id:"m13", tipo:"resposta_curta", tempo:15, pergunta:"Qual rapper MZ ficou popular com 'Bem-Vindo a Maputo'?", respostas_aceites:[["mc roger"]] },
-  { id:"m14", tipo:"resposta_curta", tempo:15, pergunta:"Qual artista MZ ficou conhecido com a música 'Nyamurate'?", respostas_aceites:[["laylizzy","laylizzy davilson"]] },
-  { id:"m15", tipo:"resposta_curta", tempo:15, pergunta:"Qual é o instrumento de cordas dedilhadas tradicional usado pelos Chopi?", respostas_aceites:[["xitende","mbira"]] },
-  { id:"m16", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 géneros musicais com origem em Moçambique", respostas_aceites:[["marrabenta"],["pandza","panda"],["tufo"],["timbila"],["mapiko"],["xigubo"],["xibelane"]] },
-  { id:"m17", tipo:"lista", tempo:60, total:6, pergunta:"Nomeia 6 artistas/cantores moçambicanos", respostas_aceites:[["neyma"],["lizha james","lizha"],["mr bow","mister bow"],["azagaia"],["wazimbo"],["ziqo","dj ziqo"],["laylizzy"],["tamyris","tamyris moiane"],["mr kuka","kuka"],["hot blaze"],["twenty fingers"],["bander"],["mc roger"],["stewart sukuma","sukuma"],["mingas"],["marllen"],["percella"],["lourena nhate","lourena"],["dygo boy","dygo"],["edu all talents","edu"]] },
-  { id:"m18", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 cantoras moçambicanas", respostas_aceites:[["neyma"],["lizha james","lizha"],["tamyris","tamyris moiane"],["mingas"],["marllen"],["percella"],["lourena nhate","lourena"],["dama do bling"]] },
-  { id:"m19", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 rappers ou artistas de hip-hop moçambicanos", respostas_aceites:[["azagaia"],["laylizzy"],["mc roger"],["hot blaze"],["ubakka","justino ubakka"],["mr bow","mister bow"],["bander"],["dygo boy","dygo"]] },
+  { id:"m12", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 novos talentos femininos da música moçambicana", respostas_aceites:[["percella"],["tamyris","tamyris moiane"],["melony"],["stefania"]] },
+  { id:"m12b", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 novos talentos masculinos da música moçambicana", respostas_aceites:[["kiba the seven","kiba"],["junior loukinho","loukinho"],["akon g"],["purpleswag","purple swag"],["yung mypro","mypro"]] },
+  { id:"m13", tipo:"resposta_curta", tempo:15, pergunta:"Qual rapper MZ ficou popular com a música 'Patrão'?", respostas_aceites:[["mc roger","roger"]] },
+  { id:"m14", tipo:"resposta_curta", tempo:15, pergunta:"Qual artista MZ ficou conhecido com a música 'Hello'?", respostas_aceites:[["laylizzy","laylizzy davilson"]] },
+  { id:"m16", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 géneros musicais com origem em Moçambique", respostas_aceites:[["marrabenta"],["pandza"],["tufo"],["timbila"],["mapiko"],["xigubo"],["xibelane"]] },
+  { id:"m17", tipo:"lista", tempo:60, total:5, pergunta:"Nomeia 5 artistas masculinos moçambicanos", respostas_aceites:[["mr bow","mister bow"],["wazimbo"],["azagaia"],["laylizzy"],["mc roger","roger"],["hot blaze"],["bander"],["dygo boy","dygo"],["purpleswag","purple swag"],["yung mypro","mypro"],["kiba the seven","kiba"],["junior loukinho","loukinho"],["akon g"],["dj ziqo","ziqo"],["mr kuka","kuka"],["valentino de la vega","de la vega"],["hernani da silva","hernani"],["duas caras"],["mark exodus"],["jay arghh"],["helio beatz"],["bandjero"],["djimetta"],["king cizzy"],["twenty fingers"],["doppaz"],["kamane kamas"]] },
+  { id:"m17b", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 artistas femininas moçambicanas", respostas_aceites:[["neyma"],["lizha james","lizha"],["tamyris","tamyris moiane"],["mingas"],["marllen"],["lourena nhate","lourena"],["melony"],["stefania"],["percella"],["dama do bling"]] },
+  { id:"m19", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 rappers ou artistas de hip-hop moçambicanos", respostas_aceites:[["azagaia"],["laylizzy"],["djimetta"],["hot blaze"],["hernani da silva","hernani"],["jay arghh"],["bander"],["dygo boy","dygo"],["kamane kamas"],["shabba"],["yung mypro","mypro"],["valentino de la vega","de la vega"],["helio beatz"],["bandjero"],["purpleswag","purple swag"]] },
   { id:"m20", tipo:"lista", tempo:30, total:3, pergunta:"Nomeia 3 instrumentos musicais tradicionais de Moçambique", respostas_aceites:[["timbila"],["mbira"],["xitende"],["ngoma"],["nhacasso"],["lupembe"]] },
-  { id:"m21", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 artistas africanos (não MZ) muito populares em Moçambique", respostas_aceites:[["burna boy"],["wizkid","wiz kid"],["diamond platnumz","diamond"],["c4 pedro","c4"],["anselmo ralph","anselmo"],["nelson freitas"],["calema"],["davido"]] },
-  { id:"m22", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 danças tradicionais de Moçambique", respostas_aceites:[["mapiko"],["tufo"],["xigubo"],["xibelane"],["marrabenta"],["timbila"]] },
-  { id:"m23", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 artistas MZ conhecidos por música gospel ou cristã", respostas_aceites:[["valdemiro jose","valdemiro"],["deborah duarte","deborah"],["yadah"],["nuno abdul","nuno"],["edmazia","edmazia mayembe"]] },
-  { id:"m24", tipo:"lista", tempo:30, total:3, pergunta:"Nomeia 3 bebidas alcoólicas produzidas em Moçambique", respostas_aceites:[["2m","dois m"],["laurentina"],["tipo tinto","tipo"],["impala"],["catembe"]] },
-  { id:"m25", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 podcasts ou influencers MZ conhecidos nas redes sociais", respostas_aceites:[["guyzelh","guyzelh ramos"],["cardo","cardo podcast"],["maxh","maxh 258"],["catamo"],["salensio"],["lizha james","lizha"]] },
+  { id:"m21", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 artistas africanos (não MZ) muito populares em Moçambique", respostas_aceites:[["burna boy"],["wizkid","wiz kid"],["davido"],["rema"],["nasty c"],["a reece","reece"],["diamond platnumz","diamond"],["deezy"],["monsta"],["c4 pedro","c4"],["anselmo ralph","anselmo"],["plutonio","plutônio"],["matias damasio","matias damásio","matias"],["landrick"],["gerilson israel","gerilson"],["ana joyce"],["calema"],["nga"],["prodigio"],["masta"],["don g"],["3 finer"],["yola semedo","yola"]] },
+  { id:"m22", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 danças tradicionais de Moçambique", respostas_aceites:[["mapiko"],["tufo"],["xigubo"],["xibelane"]] },
+  { id:"m23", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 artistas MZ conhecidos por música gospel ou cristã", respostas_aceites:[["valdemiro jose","valdemiro"],["deborah duarte","deborah"],["yadah"],["nuno abdul","nuno"],["edmazia","edmazia mayembe"],["justino ubakka","ubakka"]] },
+  { id:"m24", tipo:"lista", tempo:30, total:3, pergunta:"Nomeia 3 rótulos de cerveja moçambicana", respostas_aceites:[["2m","dois m"],["laurentina"],["manica"],["txilar"]] },
+  { id:"m25", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 podcasts ou influencers MZ conhecidos nas redes sociais", respostas_aceites:[["tu para tu"],["daniel"],["armando"],["victor rener"],["guyzelh","guyzelh ramos"],["cardo","cardo podcast"],["maxh","maxh 258"],["catamo"],["salensio"]] },
 
-  // ── GÍRIAS & EXPRESSÕES ───────────────────────────────────
-  { id:"g01", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Kanimambo' em Changana?", respostas_aceites:[["obrigado","obrigada"]] },
-  { id:"g02", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Mboa' na gíria de Maputo?", respostas_aceites:[["rapariga","namorada","miuda","miúda","girl"]] },
-  { id:"g03", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Xilado' na gíria moçambicana?", respostas_aceites:[["cansado","sem dinheiro","lixado","exausto","sem fundos"]] },
-  { id:"g04", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Nyama' em Changana e Ronga?", respostas_aceites:[["carne"]] },
-  { id:"g05", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Salani Kahle' em Changana?", respostas_aceites:[["adeus","fiquem bem","ate logo","tchau"]] },
-  { id:"g06", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Pela' na gíria de Maputo?", respostas_aceites:[["dinheiro","massa","guita"]] },
-  { id:"g07", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Boah' na gíria moçambicana?", respostas_aceites:[["boa","bom","fixe","top"]] },
-  { id:"g08", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Mana' como vocativo no contexto moçambicano?", respostas_aceites:[["irma","amiga","mana","colega"]] },
-  { id:"g09", tipo:"resposta_curta", tempo:15, pergunta:"Como se diz 'Bom dia' em Changana?", respostas_aceites:[["xewani","avuxeni"]] },
-  { id:"g10", tipo:"resposta_curta", tempo:15, pergunta:"O que é um 'Chapa' em Moçambique?", respostas_aceites:[["transporte publico","mini autocarro","minibus","transporte coletivo","chapa 100"]] },
-  { id:"g11", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Txopela' em Moçambique?", respostas_aceites:[["mototaxi","moto taxi","motociclo taxi"]] },
-  { id:"g12", tipo:"resposta_curta", tempo:15, pergunta:"O que é o 'Lobolo' na cultura moçambicana?", respostas_aceites:[["dote","bridewealth","preco da noiva","pagamento para casar"]] },
-  { id:"g13", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Kuyimba' em Changana?", respostas_aceites:[["cantar","musica"]] },
-  { id:"g14", tipo:"resposta_curta", tempo:15, pergunta:"O que é o 'Xitique' na cultura moçambicana?", respostas_aceites:[["poupanca coletiva","sistema de poupanca","kitty","vaquinha"]] },
-  { id:"g15", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Malandro' na gíria MZ (contexto neutro)?", respostas_aceites:[["espertalhao","esperto","malandro","fixolas","safado"]] },
-  { id:"g16", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 formas de dizer 'amigo' ou 'colega' na gíria MZ", respostas_aceites:[["mano","manu"],["bro"],["parceiro"],["chegou","cheg"],["maninho"],["bodas"]] },
-  { id:"g17", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 palavras MZ para dizer que algo é bom/fixe", respostas_aceites:[["boah","boa"],["massa"],["fixe"],["top"],["direto"],["show"],["na vibe"],["certo"]] },
-  { id:"g18", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 pratos típicos moçambicanos", respostas_aceites:[["matapa"],["xima"],["caril de amendoim","caril amendoim"],["galinha zambeziana","galinha a zambeziana"],["frango cafreal","frango a cafreal"],["chamussas"],["badjias"],["lagosta"]] },
-  { id:"g19", tipo:"lista", tempo:30, total:3, pergunta:"Nomeia 3 línguas bantu faladas em Moçambique", respostas_aceites:[["changana"],["ronga"],["macua","makua"],["sena"],["ndau"],["tswa"],["chewa"],["yao"],["makonde"]] },
-  { id:"g20", tipo:"lista", tempo:30, total:3, pergunta:"Nomeia 3 formas de pagamento usadas no dia a dia em MZ", respostas_aceites:[["metical","mt","meticais"],["mpesa","m-pesa"],["emola","e-mola"],["ponto 24","ponto24","multicaixa"],["rand"]] },
-  { id:"g21", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 expressões moçambicanas de cumprimento", respostas_aceites:[["kanimambo"],["salani kahle","salani"],["xewani"],["minjani","minjane"],["nhani"],["como esta","como vai"]] },
-  { id:"g22", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 marcas ou produtos tipicamente moçambicanos", respostas_aceites:[["2m","dois m"],["laurentina"],["tipo tinto","tipo"],["caju","suco de caju"],["movitel"],["tmcel"],["vodacom"],["piri piri","piri-piri"]] },
-  { id:"g23", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 comportamentos ou gírias típicas na linguagem MZ", respostas_aceites:[["xilado"],["malandro"],["na frente","nafrente"],["fazer esquema","esquema"],["mandar bala"],["desconfiar","desconfiado"],["bater o pe","bater pe"]] },
-  { id:"g24", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 objectos do dia a dia em Moçambique com nomes locais", respostas_aceites:[["capulana"],["chapa"],["txopela"],["catana"],["pilao","pilão"],["baraca","barraca"],["machamba"]] },
-  { id:"g25", tipo:"lista", tempo:30, total:3, pergunta:"Nomeia 3 festas ou celebrações culturais em Moçambique", respostas_aceites:[["lobolo"],["xitique"],["mapiko"],["tufo"],["festa da independencia","25 de junho"],["festa da paz","4 de outubro","dia da paz"]] },
+  // ── GÍRIAS E EXPRESSÕES ───────────────────────────────────
+  { id:"g01", tipo:"resposta_curta", tempo:15, pergunta:"Como se diz 'obrigado' em Changana?", respostas_aceites:[["kanimambo"]] },
+  { id:"g04", tipo:"resposta_curta", tempo:15, pergunta:"Como se diz 'carne' em Changana?", respostas_aceites:[["nyama"]] },
+  { id:"g05", tipo:"resposta_curta", tempo:15, pergunta:"O que significa 'Salani Kahle' em português?", respostas_aceites:[["adeus","fiquem bem","fique bem","ate logo","até logo","tchau"]] },
+  { id:"g16", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 formas de dizer 'amigo' ou 'colega' na gíria MZ", respostas_aceites:[["mano","manu"],["bro"],["maninho"],["edjo"],["boss"],["brada"]] },
+  { id:"g18", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 pratos típicos moçambicanos", respostas_aceites:[["matapa"],["xima"],["caril de amendoim","caril amendoim"],["galinha zambeziana","galinha a zambeziana"],["frango cafreal","frango a cafreal"],["chamuças","chamucas"],["badjias"],["lagosta"],["maheu"],["kakana","cacana"],["xiguinha"]] },
+  { id:"g19", tipo:"lista", tempo:30, total:3, pergunta:"Nomeia 3 línguas bantu faladas em Moçambique", respostas_aceites:[["changana"],["ronga"],["macua","makua"],["sena"],["ndau"],["tswa"],["chewa"],["yao"],["lomue"],["makonde"]] },
+  { id:"g20", tipo:"lista", tempo:30, total:3, pergunta:"Nomeia 3 formas de pagamento usadas no dia a dia em MZ", respostas_aceites:[["metical","mt","meticais"],["mpesa","m-pesa"],["emola","e-mola"],["ponto 24","ponto24","multicaixa"],["rand"],["mkesh","m kesh"]] },
+  { id:"g21", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 expressões moçambicanas de cumprimento", respostas_aceites:[["kanimambo"],["salani kahle","salani"],["xewani"],["minjani","minjane"],["nhani"],["como estás","como vai","como esta"],["kmk"],["na boa"],["estás nice","estas nice"],["u bom"],["como é que é","como e que e"]] },
+  { id:"g22", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 marcas ou empresas moçambicanas", respostas_aceites:[["2m","dois m"],["laurentina"],["manica"],["txilar"],["movitel"],["tmcel"],["emola"],["mkesh","m kesh"],["millennium bim","bim"],["namaacha"],["miramar"],["stv"],["tv sucesso"]] },
+  { id:"g22b", tipo:"lista", tempo:30, total:2, pergunta:"Nomeia 2 designers de moda moçambicanos", respostas_aceites:[["nivaldo thierry","nivaldo"],["taibo bacar","taibo"]] },
+  { id:"g24", tipo:"lista", tempo:45, total:4, pergunta:"Nomeia 4 objectos do dia a dia em Moçambique com nomes locais específicos", respostas_aceites:[["capulana"],["chapa"],["txopela"],["catana"],["pilão","pilao"],["baraca","barraca"],["machamba"]] },
+  { id:"g25", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 festas ou celebrações culturais em Moçambique", respostas_aceites:[["lobolo"],["mapiko"],["tufo"],["25 de junho","independencia","festa da independencia"],["4 de outubro","dia da paz","festa da paz"]] },
 ];
 
 function shuffle(arr) {
@@ -103,25 +101,30 @@ function shuffle(arr) {
   return a;
 }
 
-function pickRound() { return shuffle(BANK).slice(0, TOTAL_Q); }
-
-function calcIndividualPts(rank) {
-  return rank === 0 ? 100 : rank === 1 ? 80 : rank === 2 ? 60 : 40;
-}
-function calcTeamPts(rank) {
-  return rank === 0 ? 100 : rank === 1 ? 70 : 40;
-}
+function pickRound() { return shuffle(BANK).slice(0, NORMAL_Q); }
 
 export class SporcleMZEngine extends BaseEngine {
   constructor(params) {
     super(params);
     this.phase = "lobby";
-    this.mode  = "individual"; // "individual" | "equipas"
+    this.mode  = "individual";
 
-    // questions
     this.questions = [];
     this.qIdx      = 0;
     this.timeLeft  = 0;
+
+    // wager system
+    this.wagersUsed  = new Map(); // playerId/teamId → number[]
+    this.wagerThis   = new Map(); // playerId/teamId → number | null
+    this.wagerTimer  = 0;
+    this.wagerResults = {};       // playerId → { wager, delta }
+
+    // final round
+    this.finalVotes      = new Map();
+    this.voteTimer       = 0;
+    this.finalDifficulty = null;
+    this.finalQuestion   = null;
+    this.isFinalRound    = false;
 
     // individual
     this.scores        = new Map();
@@ -130,11 +133,39 @@ export class SporcleMZEngine extends BaseEngine {
     this.answeredShort = new Set();
 
     // equipas
-    this.equipas            = new Map(); // teamId → {id,name,color,members[],captainIdx,currentCaptainId}
-    this.teamScores         = new Map();
-    this.teamAnswers        = new Map(); // teamId → Set<"grupo_N">
-    this.answerOrderTeams   = [];
-    this.answeredShortTeams = new Set();
+    this.equipas             = new Map();
+    this.teamScores          = new Map();
+    this.teamAnswers         = new Map();
+    this.answerOrderTeams    = [];
+    this.answeredShortTeams  = new Set();
+  }
+
+  // ── wager helpers ─────────────────────────────────────────
+
+  _wagerKeys() {
+    return this.mode === "equipas"
+      ? [...this.equipas.keys()]
+      : [...this.room.players.keys()];
+  }
+
+  _initWagers() {
+    const keys = this._wagerKeys();
+    this.wagersUsed = new Map(keys.map(k => [k, []]));
+    this.wagerThis  = new Map(keys.map(k => [k, null]));
+  }
+
+  _autoFillWagers(isFinal = false) {
+    for (const k of this._wagerKeys()) {
+      if (this.wagerThis.get(k) === null) {
+        if (isFinal) {
+          this.wagerThis.set(k, 0);
+        } else {
+          const used = this.wagersUsed.get(k) || [];
+          const available = [1,2,3,4,5,6,7,8,9,10].filter(v => !used.includes(v));
+          this.wagerThis.set(k, available[0] ?? 1);
+        }
+      }
+    }
   }
 
   // ── team helpers ──────────────────────────────────────────
@@ -165,8 +196,7 @@ export class SporcleMZEngine extends BaseEngine {
 
   _syncCaptains() {
     for (const [, t] of this.equipas) {
-      if (t.members.length > 0) t.currentCaptainId = t.members[t.captainIdx % t.members.length];
-      else t.currentCaptainId = null;
+      t.currentCaptainId = t.members.length > 0 ? t.members[t.captainIdx % t.members.length] : null;
     }
   }
 
@@ -202,21 +232,103 @@ export class SporcleMZEngine extends BaseEngine {
     const me = this.room.players.get(socketId);
     if (!me?.isHost || this.phase !== "lobby") return;
     if (this.mode === "equipas" && this.equipas.size < 2) return;
-    this.questions = pickRound();
-    this.qIdx = 0;
+    this.questions     = pickRound();
+    this.qIdx          = 0;
+    this.isFinalRound  = false;
+    this.finalQuestion = null;
+    this.finalDifficulty = null;
+    this.wagerResults  = {};
     this._initScores();
-    this._startQuestion();
+    this._initWagers();
+    this._startWager();
+  }
+
+  _startWager() {
+    this.clearTimers();
+    this.phase = "wager";
+    this.wagerTimer = WAGER_SECS;
+    for (const k of this._wagerKeys()) this.wagerThis.set(k, null);
+    this.emitState();
+
+    this._setInterval(() => {
+      this.wagerTimer = Math.max(0, this.wagerTimer - 1);
+      if (this.wagerTimer <= 0) {
+        this.clearTimers();
+        this._autoFillWagers(false);
+        this._startQuestion();
+      } else {
+        this.emitState();
+      }
+    }, 1000);
+  }
+
+  _startFinalWager() {
+    this.clearTimers();
+    this.phase = "finalWager";
+    this.wagerTimer = WAGER_SECS;
+    for (const k of this._wagerKeys()) this.wagerThis.set(k, null);
+    this.emitState();
+
+    this._setInterval(() => {
+      this.wagerTimer = Math.max(0, this.wagerTimer - 1);
+      if (this.wagerTimer <= 0) {
+        this.clearTimers();
+        this._autoFillWagers(true);
+        this._startQuestion();
+      } else {
+        this.emitState();
+      }
+    }, 1000);
+  }
+
+  _startFinalVote() {
+    this.clearTimers();
+    this.phase = "finalVote";
+    this.finalVotes = new Map();
+    this.voteTimer = VOTE_SECS;
+    this.emitState();
+
+    this._setInterval(() => {
+      this.voteTimer = Math.max(0, this.voteTimer - 1);
+      this.emitState();
+      if (this.voteTimer <= 0) {
+        this.clearTimers();
+        this._resolveFinalVote();
+      }
+    }, 1000);
+  }
+
+  _resolveFinalVote() {
+    const counts = { facil: 0, media: 0, dificil: 0 };
+    for (const v of this.finalVotes.values()) counts[v] = (counts[v] || 0) + 1;
+    this.finalDifficulty = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+
+    const usedIds = new Set(this.questions.map(q => q.id));
+    const diffFilter = {
+      facil:   q => q.tipo === "resposta_curta",
+      media:   q => q.tipo === "lista" && (q.total ?? q.respostas_aceites.length) <= 4,
+      dificil: q => q.tipo === "lista" && (q.total ?? q.respostas_aceites.length) >= 5,
+    }[this.finalDifficulty] ?? (() => true);
+
+    const pool = BANK.filter(q => !usedIds.has(q.id) && diffFilter(q));
+    const fallback = BANK.filter(q => !usedIds.has(q.id));
+    const src = pool.length > 0 ? pool : fallback.length > 0 ? fallback : BANK;
+    this.finalQuestion = src[Math.floor(Math.random() * src.length)];
+    this.isFinalRound = true;
+    this.emitState();
+
+    this._setTimeout(() => this._startFinalWager(), 2000);
   }
 
   _startQuestion() {
     this.clearTimers();
     this.phase = "question";
-    const q = this.questions[this.qIdx];
-    this.timeLeft        = q.tempo;
-    this.playerAnswers   = new Map([...this.room.players.keys()].map(id => [id, new Set()]));
-    this.answerOrder     = [];
-    this.answeredShort   = new Set();
-    this.teamAnswers     = new Map([...this.equipas.keys()].map(id => [id, new Set()]));
+    const q = this.isFinalRound ? this.finalQuestion : this.questions[this.qIdx];
+    this.timeLeft            = q.tempo;
+    this.playerAnswers       = new Map([...this.room.players.keys()].map(id => [id, new Set()]));
+    this.answerOrder         = [];
+    this.answeredShort       = new Set();
+    this.teamAnswers         = new Map([...this.equipas.keys()].map(id => [id, new Set()]));
     this.answerOrderTeams    = [];
     this.answeredShortTeams  = new Set();
     this.emitState();
@@ -237,40 +349,94 @@ export class SporcleMZEngine extends BaseEngine {
   }
 
   _atribuirPontos() {
-    const q = this.questions[this.qIdx];
+    const q = this.isFinalRound ? this.finalQuestion : this.questions[this.qIdx];
+    if (!q) return;
+
+    const prevScores = new Map(this.scores);
+    this.wagerResults = {};
+
     if (this.mode === "individual") {
       if (q.tipo === "resposta_curta") {
-        this.answerOrder.forEach(({ id }, rank) =>
-          this.scores.set(id, (this.scores.get(id) || 0) + calcIndividualPts(rank))
-        );
+        for (const [id] of this.scores) {
+          const wager = this.wagerThis.get(id) ?? 1;
+          const correct = this.answeredShort.has(id);
+          this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
+          if (!this.isFinalRound) {
+            const used = this.wagersUsed.get(id) || [];
+            this.wagersUsed.set(id, [...used, wager]);
+          }
+        }
       } else {
-        for (const [id, acertadas] of this.playerAnswers)
-          this.scores.set(id, (this.scores.get(id) || 0) + acertadas.size * 10);
+        for (const [id, acertadas] of this.playerAnswers) {
+          const wager = this.wagerThis.get(id) ?? 1;
+          const total = q.total ?? q.respostas_aceites.length;
+          const correct = total > 0 && acertadas.size / total >= 0.5;
+          this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
+          if (!this.isFinalRound) {
+            const used = this.wagersUsed.get(id) || [];
+            this.wagersUsed.set(id, [...used, wager]);
+          }
+        }
+      }
+      for (const [id] of this.scores) {
+        const wagerKey = id;
+        this.wagerResults[id] = {
+          wager: this.wagerThis.get(wagerKey) ?? null,
+          delta: (this.scores.get(id) || 0) - (prevScores.get(id) || 0),
+        };
       }
     } else {
+      // equipas
       if (q.tipo === "resposta_curta") {
-        this.answerOrderTeams.forEach((tid, rank) => {
-          const pts = calcTeamPts(rank);
-          this.teamScores.set(tid, (this.teamScores.get(tid) || 0) + pts);
-          // add pts to individual members too (for display)
+        for (const [tid] of this.teamScores) {
+          const wager = this.wagerThis.get(tid) ?? 1;
+          const correct = this.answeredShortTeams.has(tid);
+          const delta = correct ? wager : -wager;
+          this.teamScores.set(tid, (this.teamScores.get(tid) || 0) + delta);
           const team = this.equipas.get(tid);
-          team?.members.forEach(mid => this.scores.set(mid, (this.scores.get(mid) || 0) + pts));
-        });
+          team?.members.forEach(mid => this.scores.set(mid, (this.scores.get(mid) || 0) + delta));
+          if (!this.isFinalRound) {
+            const used = this.wagersUsed.get(tid) || [];
+            this.wagersUsed.set(tid, [...used, wager]);
+          }
+        }
       } else {
         for (const [tid, acertadas] of this.teamAnswers) {
-          const pts = acertadas.size * 10;
-          this.teamScores.set(tid, (this.teamScores.get(tid) || 0) + pts);
+          const wager = this.wagerThis.get(tid) ?? 1;
+          const total = q.total ?? q.respostas_aceites.length;
+          const correct = total > 0 && acertadas.size / total >= 0.5;
+          const delta = correct ? wager : -wager;
+          this.teamScores.set(tid, (this.teamScores.get(tid) || 0) + delta);
           const team = this.equipas.get(tid);
-          team?.members.forEach(mid => this.scores.set(mid, (this.scores.get(mid) || 0) + pts));
+          team?.members.forEach(mid => this.scores.set(mid, (this.scores.get(mid) || 0) + delta));
+          if (!this.isFinalRound) {
+            const used = this.wagersUsed.get(tid) || [];
+            this.wagersUsed.set(tid, [...used, wager]);
+          }
         }
+      }
+      for (const [id] of this.scores) {
+        const tid = this._teamOf(id);
+        this.wagerResults[id] = {
+          wager: tid ? (this.wagerThis.get(tid) ?? null) : null,
+          delta: (this.scores.get(id) || 0) - (prevScores.get(id) || 0),
+        };
       }
     }
   }
 
   _nextQ() {
+    if (this.isFinalRound) {
+      this.phase = "finished";
+      this.emitState();
+      return;
+    }
     this.qIdx++;
-    if (this.qIdx >= TOTAL_Q) { this.phase = "finished"; this.emitState(); }
-    else this._startQuestion();
+    if (this.qIdx >= NORMAL_Q) {
+      this._startFinalVote();
+    } else {
+      this._startWager();
+    }
   }
 
   // ── commands ──────────────────────────────────────────────
@@ -280,6 +446,17 @@ export class SporcleMZEngine extends BaseEngine {
       this._handleLobbyCommand(socketId, command);
       return;
     }
+
+    if ((this.phase === "wager" || this.phase === "finalWager") && command.type === "WAGER") {
+      this._handleWager(socketId, command);
+      return;
+    }
+
+    if (this.phase === "finalVote" && command.type === "VOTE_DIFFICULTY") {
+      this._handleVote(socketId, command);
+      return;
+    }
+
     if (this.mode === "equipas") {
       this._handleEquipasCommand(socketId, command);
     } else {
@@ -287,8 +464,48 @@ export class SporcleMZEngine extends BaseEngine {
     }
   }
 
+  _handleWager(socketId, command) {
+    const isFinal = this.phase === "finalWager";
+    const key = this.mode === "equipas" ? this._teamOf(socketId) : socketId;
+    if (!key) return;
+    if (this.mode === "equipas" && !this._isCaptain(socketId)) return;
+    if (this.wagerThis.get(key) !== null) return;
+
+    const { value } = command;
+    if (typeof value !== "number") return;
+
+    if (isFinal) {
+      if (![0, 10, 20].includes(value)) return;
+    } else {
+      if (value < 1 || value > 10) return;
+      const used = this.wagersUsed.get(key) || [];
+      if (used.includes(value)) return;
+    }
+
+    this.wagerThis.set(key, value);
+    this.emitState();
+
+    const keys = this._wagerKeys();
+    if (keys.every(k => this.wagerThis.get(k) !== null)) {
+      this.clearTimers();
+      this._startQuestion();
+    }
+  }
+
+  _handleVote(socketId, command) {
+    const { vote } = command;
+    if (!["facil", "media", "dificil"].includes(vote)) return;
+    if (this.finalVotes.has(socketId)) return;
+    this.finalVotes.set(socketId, vote);
+    this.emitState();
+
+    if (this.finalVotes.size >= this.room.players.size) {
+      this.clearTimers();
+      this._resolveFinalVote();
+    }
+  }
+
   _handleLobbyCommand(socketId, command) {
-    // Any player can join/switch their own team
     if (command.type === "JOIN_TEAM") {
       if (command.teamId && this.equipas.has(command.teamId)) {
         this._assignPlayer(socketId, command.teamId);
@@ -297,7 +514,6 @@ export class SporcleMZEngine extends BaseEngine {
       return;
     }
 
-    // Any team member (non-host) can rename their own team
     if (command.type === "RENAME_TEAM") {
       const me = this.room.players.get(socketId);
       if (me?.isHost) return;
@@ -334,7 +550,7 @@ export class SporcleMZEngine extends BaseEngine {
 
   _handleIndividualCommand(socketId, command) {
     if (command.type !== "ANSWER" || this.phase !== "question") return;
-    const q = this.questions[this.qIdx];
+    const q = this.isFinalRound ? this.finalQuestion : this.questions[this.qIdx];
     const answer = command.answer;
     if (typeof answer !== "string" || !answer.trim()) return;
 
@@ -368,7 +584,7 @@ export class SporcleMZEngine extends BaseEngine {
     if (!this._isCaptain(socketId)) return;
 
     const tid = this._teamOf(socketId);
-    const q   = this.questions[this.qIdx];
+    const q   = this.isFinalRound ? this.finalQuestion : this.questions[this.qIdx];
     const answer = command.answer;
     if (typeof answer !== "string" || !answer.trim()) return;
 
@@ -413,13 +629,20 @@ export class SporcleMZEngine extends BaseEngine {
     this.clearTimers();
     this.phase = "lobby";
     this.qIdx  = 0;
-    this.questions = [];
+    this.questions     = [];
     this.playerAnswers = new Map();
+    this.isFinalRound  = false;
+    this.finalQuestion = null;
+    this.finalDifficulty = null;
+    this.finalVotes    = new Map();
+    this.voteTimer     = 0;
+    this.wagerTimer    = 0;
+    this.wagersUsed    = new Map();
+    this.wagerThis     = new Map();
+    this.wagerResults  = {};
 
-    // Preserve equipas but reset scores and rotate captains
     if (this.equipas.size > 0) {
       this.equipas.forEach(t => {
-        // Remove players that left the room
         t.members = t.members.filter(id => this.room.players.has(id));
         t.captainIdx = 0;
         t.currentCaptainId = t.members[0] ?? null;
@@ -427,39 +650,59 @@ export class SporcleMZEngine extends BaseEngine {
       this.teamScores = new Map([...this.equipas.keys()].map(id => [id, 0]));
       this.scores = new Map([...this.room.players.keys()].map(id => [id, 0]));
     } else {
-      this.scores    = new Map();
+      this.scores = new Map();
       this.teamScores = new Map();
     }
-
     this.emitState();
   }
 
   onPlayerJoin(player) {
     if (!this.scores.has(player.id)) this.scores.set(player.id, 0);
+    if (this.mode !== "equipas") {
+      if (!this.wagersUsed.has(player.id)) this.wagersUsed.set(player.id, []);
+      if (!this.wagerThis.has(player.id)) this.wagerThis.set(player.id, null);
+    }
   }
 
   onPlayerLeave(player) {
     this.playerAnswers.delete(player.id);
     this.answeredShort.delete(player.id);
-    // if captain left, pass to next member
+    this.finalVotes.delete(player.id);
+
+    if (this.mode !== "equipas") {
+      this.wagersUsed.delete(player.id);
+      this.wagerThis.delete(player.id);
+    }
+
     const tid = this._teamOf(player.id);
     if (tid) {
       const team = this.equipas.get(tid);
       if (team) {
         team.members = team.members.filter(id => id !== player.id);
         if (team.currentCaptainId === player.id && team.members.length > 0) {
-          team.captainIdx     = team.captainIdx % team.members.length;
+          team.captainIdx = team.captainIdx % team.members.length;
           team.currentCaptainId = team.members[team.captainIdx];
-          this.emitState();
         }
       }
     }
+
+    if (this.phase === "wager" || this.phase === "finalWager") {
+      const keys = this._wagerKeys();
+      if (keys.length > 0 && keys.every(k => this.wagerThis.get(k) !== null)) {
+        this.clearTimers();
+        this._startQuestion();
+      }
+    }
+    if (this.phase === "finalVote" && this.finalVotes.size >= this.room.players.size) {
+      this.clearTimers();
+      this._resolveFinalVote();
+    }
+    this.emitState();
   }
 
   getPublicState() {
-    const q = this.questions[this.qIdx];
+    const q = this.isFinalRound ? this.finalQuestion : this.questions[this.qIdx];
 
-    // individual scores
     const scores = [];
     for (const [id, score] of this.scores) {
       const p = this.room.players.get(id);
@@ -467,7 +710,6 @@ export class SporcleMZEngine extends BaseEngine {
     }
     scores.sort((a, b) => b.score - a.score);
 
-    // team scores
     const teamRanking = [];
     for (const [tid, score] of this.teamScores) {
       const t = this.equipas.get(tid);
@@ -475,13 +717,11 @@ export class SporcleMZEngine extends BaseEngine {
     }
     teamRanking.sort((a, b) => b.score - a.score);
 
-    // per-player answer counts for lista progress
     const playerCounts = {};
     for (const [id, set] of this.playerAnswers) playerCounts[id] = set.size;
     const teamCounts = {};
     for (const [tid, set] of this.teamAnswers) teamCounts[tid] = set.size;
 
-    // equipas for lobby/display
     const equipasArr = [...this.equipas.values()].map(t => ({
       id: t.id, name: t.name, color: t.color,
       members: t.members.map(mid => {
@@ -491,18 +731,29 @@ export class SporcleMZEngine extends BaseEngine {
       currentCaptainId: t.currentCaptainId,
     }));
 
+    const wagerKeys = this._wagerKeys();
+    const wagersIn  = wagerKeys.filter(k => this.wagerThis.get(k) !== null).length;
+
     return {
-      phase:       this.phase,
-      mode:        this.mode,
-      qIdx:        this.qIdx,
-      totalQ:      TOTAL_Q,
-      timeLeft:    this.timeLeft,
+      phase:        this.phase,
+      mode:         this.mode,
+      qIdx:         this.qIdx,
+      totalQ:       TOTAL_ROUNDS,
+      timeLeft:     this.timeLeft,
+      wagerTimer:   this.wagerTimer,
+      voteTimer:    this.voteTimer,
+      wagersIn,
+      totalWagerers: wagerKeys.length,
+      finalVoteCount: this.finalVotes.size,
+      finalDifficulty: this.finalDifficulty,
+      isFinalRound: this.isFinalRound,
+      wagerResults: (this.phase === "reveal" || this.phase === "finished") ? this.wagerResults : null,
       scores,
       teamRanking,
-      equipas:     equipasArr,
+      equipas:      equipasArr,
       playerCounts,
       teamCounts,
-      answeredShortCount:     this.answeredShort.size,
+      answeredShortCount:      this.answeredShort.size,
       answeredShortTeamsCount: this.answeredShortTeams.size,
       question: q ? {
         id:       q.id,
@@ -516,16 +767,21 @@ export class SporcleMZEngine extends BaseEngine {
   }
 
   getPrivateState(playerId) {
-    const acertadas      = this.playerAnswers.get(playerId) || new Set();
-    const teamId         = this._teamOf(playerId);
-    const teamAcertadas  = teamId ? (this.teamAnswers.get(teamId) || new Set()) : new Set();
+    const acertadas     = this.playerAnswers.get(playerId) || new Set();
+    const teamId        = this._teamOf(playerId);
+    const teamAcertadas = teamId ? (this.teamAnswers.get(teamId) || new Set()) : new Set();
+    const wagerKey      = this.mode === "equipas" ? teamId : playerId;
+
     return {
-      myAcertadas:    [...acertadas],
-      teamAcertadas:  [...teamAcertadas],
-      answeredShort:  this.answeredShort.has(playerId),
-      teamAnswered:   teamId ? this.answeredShortTeams.has(teamId) : false,
-      isCaptain:      this._isCaptain(playerId),
-      myTeamId:       teamId,
+      myAcertadas:   [...acertadas],
+      teamAcertadas: [...teamAcertadas],
+      answeredShort: this.answeredShort.has(playerId),
+      teamAnswered:  teamId ? this.answeredShortTeams.has(teamId) : false,
+      isCaptain:     this._isCaptain(playerId),
+      myTeamId:      teamId,
+      myWager:       wagerKey ? (this.wagerThis.get(wagerKey) ?? null) : null,
+      myWagersUsed:  wagerKey ? (this.wagersUsed.get(wagerKey) ?? []) : [],
+      myVote:        this.finalVotes.get(playerId) ?? null,
     };
   }
 }
