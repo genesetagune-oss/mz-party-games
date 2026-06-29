@@ -230,7 +230,7 @@ function SporcleMZConfigOverlay({ onConfirm, onCancel }) {
 }
 
 function TeamOverlay({ mode, onConfirm, onCancel, initialName }) {
-  const [draftName, setDraftName] = React.useState(initialName || "");
+  const [draftName, setDraftName] = useState(initialName || "");
   const nameOk = draftName.trim().length >= 1;
   return (
     <div className="teamOverlay" onClick={onCancel}>
@@ -604,6 +604,16 @@ export default function App() {
   const sporcleMZConfigRef = useRef({ mode: "individual", teamCount: 2 });
   const [showSporcleMZConfig, setShowSporcleMZConfig] = useState(false);
 
+  // Loading timeout — if server doesn't respond within 20s, clear loading
+  useEffect(() => {
+    if (!loading) return;
+    const t = setTimeout(() => {
+      setLoading(null);
+      setNotice({ title: "Sem resposta", message: "O servidor demorou muito. Verifica a ligação e tenta de novo." });
+    }, 20000);
+    return () => clearTimeout(t);
+  }, [loading]);
+
   // Persist + rejoin
   useEffect(() => {
     if (roomCode && room?.gameType) {
@@ -704,7 +714,7 @@ export default function App() {
     });
     socket.on("game:state", (s) => {
       setGamePublic(s.public); setGamePrivate(s.private);
-      if (s.public?.phase && s.public.phase !== "lobby") setInLobby(false);
+      if (s.public?.phase) setInLobby(s.public.phase === "lobby");
     });
     socket.on("game:error", (e) => { showNotice("Game error", `${e.code}${e.message?" — "+e.message:""}`); });
     socket.on("room:gameChanged", () => {
