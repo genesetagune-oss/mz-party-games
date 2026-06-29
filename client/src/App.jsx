@@ -229,19 +229,44 @@ function SporcleMZConfigOverlay({ onConfirm, onCancel }) {
   );
 }
 
-function TeamOverlay({ mode, onConfirm, onCancel }) {
+function TeamOverlay({ mode, onConfirm, onCancel, initialName }) {
+  const [draftName, setDraftName] = React.useState(initialName || "");
+  const nameOk = draftName.trim().length >= 1;
   return (
     <div className="teamOverlay" onClick={onCancel}>
       <div className="teamCard" onClick={e => e.stopPropagation()}>
         <div>
-          <div className="teamTitle">Escolhe a tua equipa</div>
-          <div className="teamSub">{mode === "CREATE" ? "A criar sala…" : "A entrar na sala…"}</div>
+          <div className="teamTitle">{mode === "CREATE" ? "Criar sala" : "Entrar na sala"}</div>
         </div>
+
+        {/* Name field */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(234,236,244,.45)" }}>
+            O teu nome
+          </div>
+          <input
+            className="niceInput"
+            value={draftName}
+            onChange={e => setDraftName(e.target.value.slice(0, 20))}
+            placeholder="Escreve o teu nome…"
+            autoFocus
+            autoComplete="off"
+            maxLength={20}
+            style={{ fontSize: 16, fontWeight: 700 }}
+          />
+        </div>
+
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(234,236,244,.45)", textAlign: "center" }}>
+          Escolhe a tua equipa
+        </div>
+
         <div className="teamBtns">
-          <button className="teamBtn teamA" type="button" onClick={() => onConfirm("A")}>
+          <button className="teamBtn teamA" type="button" disabled={!nameOk} onClick={() => onConfirm("A", draftName.trim())}
+            style={{ opacity: nameOk ? 1 : 0.4 }}>
             <span style={{fontSize:20}}>🔵</span> Equipa A
           </button>
-          <button className="teamBtn teamB" type="button" onClick={() => onConfirm("B")}>
+          <button className="teamBtn teamB" type="button" disabled={!nameOk} onClick={() => onConfirm("B", draftName.trim())}
+            style={{ opacity: nameOk ? 1 : 0.4 }}>
             <span style={{fontSize:20}}>🔴</span> Equipa B
           </button>
         </div>
@@ -764,9 +789,10 @@ export default function App() {
   };
 
   const cancelOverlay = () => { setShowTeamOverlay(false); setPendingJoinCode(""); };
-  const confirmTeam = (team) => {
+  const confirmTeam = (team, draftName) => {
     if (team !== "A" && team !== "B") return;
-    const playerName = name.trim() || "Player";
+    const playerName = (draftName || name).trim() || "Player";
+    setName(playerName);
     if (overlayMode === "CREATE") { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:playerName,team}); }
     if (overlayMode === "JOIN")   { setLoading("A entrar na sala…"); socket.emit("room:join",{roomCode:pendingJoinCode,name:playerName,team}); }
     setShowTeamOverlay(false); setPendingJoinCode("");
@@ -782,7 +808,7 @@ export default function App() {
   const Overlays = () => (
     <>
       {notice    && <Notice title={notice.title} message={notice.message} dontShow={dontShowAgain} setDontShow={setDontShowAgain} onClose={closeNotice} />}
-      {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} />}
+      {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} initialName={name} />}
       {rulesFor  && <RulesModal gameType={rulesFor} onClose={closeRules} onPlay={confirmRules} />}
       {showSporcleMZConfig && <SporcleMZConfigOverlay onConfirm={confirmSporcleMZConfig} onCancel={() => setShowSporcleMZConfig(false)} />}
       {switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} currentGame={room?.gameType} />}

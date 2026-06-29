@@ -234,7 +234,13 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
 const CLIENT_DIST = path.join(__dirname, "../../client/dist");
 if (existsSync(CLIENT_DIST)) {
   app.use(express.static(CLIENT_DIST));
-  app.get(/.*/, (_, res) => res.sendFile(path.join(CLIENT_DIST, "index.html")));
+  app.get("*", (_, res) => res.sendFile(path.join(CLIENT_DIST, "index.html")));
+} else {
+  app.get("*", (_, res) => res.status(503).send(
+    "<!DOCTYPE html><html><head><title>MZ Party Games</title></head><body style='font-family:sans-serif;padding:40px;background:#1a1a2e;color:#fff'>" +
+    "<h2>🎮 MZ Party Games</h2><p>Servidor online. A aguardar o build do cliente…</p>" +
+    "<p style='color:#888;font-size:14px'>Se és o admin: configura o Build Command no Render como <code>npm run build</code></p></body></html>"
+  ));
 }
 
 const PORT = process.env.PORT || 3001;
