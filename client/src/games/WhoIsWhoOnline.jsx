@@ -12,12 +12,10 @@ const TURN_OPTIONS = [
 ];
 
 const RULES = [
-  "Cada jogador fica com o telemóvel na testa (ecrã virado para fora).",
-  "Os outros fazem perguntas de SIM/NÃO para adivinhar quem és.",
-  "O jogador da vez confirma acerto com ✅ Acertou ou passa com ⏭ Passar.",
-  "Cada acerto vale 1 ponto para o jogador da vez.",
-  "O tempo é automático consoante o número de jogadores.",
-  "Primeiro a chegar a 10 pontos vence! 🏆",
+  "Tens uma palavra/personagem que não vês.",
+  "Faz perguntas de SIM ou NÃO aos outros para descobrires quem és.",
+  "Acerta o máximo que conseguires no teu tempo.",
+  "Quem acertar mais, ganha.",
 ];
 
 export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
@@ -49,6 +47,7 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
   const [showCatPicker, setShowCatPicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState("");
 
   function showFloat(msg) {
     setFloatMsg(msg);
@@ -79,10 +78,14 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
   const restart      = () => { warmupAudio(); socket.emit("game:restart"); };
 
   const handleShare = async () => {
-    const url = "https://mz-party-games.onrender.com";
-    const text = `🎮 Acabei de jogar MZ Party Games! Vem jogar também → ${url}`;
-    if (navigator.share) { try { await navigator.share({ title: "MZ Party Games", text, url }); } catch {} }
-    else { try { await navigator.clipboard.writeText(text); } catch {} }
+    const url = `https://mz-party-games.onrender.com/?join=${roomCode}`;
+    const text = `🎮 Joga Quem Sou Eu? comigo no MZ Party Games!\nEntra directo → ${url}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "MZ Party Games", text, url }); setShareFeedback("Partilhado! ✓"); } catch {}
+    } else {
+      try { await navigator.clipboard.writeText(url); setShareFeedback("Copiado! ✓"); } catch {}
+    }
+    setTimeout(() => setShareFeedback(""), 2500);
   };
 
   const catLabel = CATEGORIAS.find(c => c.id === category)?.nome ?? category;
@@ -161,6 +164,50 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
           {/* ── LOBBY ── */}
           {isLobby && (
             <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", gap: 12, overflow: "auto", paddingBottom: 12 }}>
+
+              {/* Share code card */}
+              <button className="lobbyCodeCard" onClick={handleShare} type="button">
+                <div className="lobbyCodeLabel">{shareFeedback || "SHARE CODE"}</div>
+                <div className="lobbyCodeRow">
+                  <div className="lobbyCodeValue">{(roomCode || "").match(/.{1,3}/g)?.join(" ")}</div>
+                  <div className="lobbyShareBtn">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                  </div>
+                </div>
+                <div style={{ fontSize:11, opacity:.50, marginTop:6 }}>Toca para partilhar · WhatsApp, Instagram, SMS…</div>
+              </button>
+
+              {/* Player list — flat, individual (no teams) */}
+              <div className="lobbyPlayersCard">
+                <div className="lobbyPlayersHeader">
+                  <div className="lobbyPlayersTitle">Jogadores</div>
+                  <div className="lobbyPlayersCount">
+                    {(room?.players ?? []).length}<span style={{ opacity:.45 }}>/8</span>
+                  </div>
+                </div>
+                <div style={{ display:"grid", gap:8, padding:"4px 0" }}>
+                  {(room?.players ?? []).map(p => {
+                    const initials = (p.name || "?")[0].toUpperCase();
+                    const AVATAR_COLORS = ["#7c5dfa","#00e5b0","#4a9eff","#f97316","#ec4899","#22c55e","#eab308","#ef4444"];
+                    const color = AVATAR_COLORS[(p.name || "").charCodeAt(0) % AVATAR_COLORS.length] || "#7c5dfa";
+                    return (
+                      <div key={p.id} className="lobbyPlayer">
+                        <div style={{ width:36, height:36, borderRadius:"50%", background:`${color}22`, border:`2px solid ${color}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color, flexShrink:0 }}>{initials}</div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div className="lobbyPlayerName">{p.name}</div>
+                          {p.isHost && <div className="lobbyHostBadge">HOST</div>}
+                        </div>
+                        <div className="lobbyPlayerReady">✓</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Host controls / guest waiting */}
               {isHost ? (
                 <>
                   <button type="button" className="btnPrimary"
@@ -193,9 +240,8 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                   )}
                 </>
               ) : (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "32px 0" }}>
-                  <div style={{ fontSize: 48 }}>🎭</div>
-                  <div style={{ fontWeight: 900, fontSize: 18, textAlign: "center" }}>Aguardando o host iniciar…</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "16px 0" }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, opacity: .75, textAlign: "center" }}>Aguardando o host iniciar…</div>
                   <div style={{ padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.75)" }}>
                     Categoria: <b style={{ color: "#fff" }}>{catLabel}</b>
                   </div>

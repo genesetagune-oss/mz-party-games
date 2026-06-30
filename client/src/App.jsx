@@ -840,13 +840,13 @@ export default function App() {
 
   const onSwitchGame = () => setSwitchingGame(true);
 
-  // sporcleMZ handles its own lobby phase — must come before generic inLobby check
+  // these games handle their own lobby phase — must come before generic inLobby check
   if (room?.gameType === "sporcleMZ")  return <><SporcleMZOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
+  if (room?.gameType === "whoIsWho")   return <><WhoIsWhoOnline  room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
 
   if (room && inLobby) return <><LobbyScreen room={room} roomCode={roomCode} onLeave={() => leaveRoom(true)} gamePublic={gamePublic} onRules={() => openRulesOnly(room.gameType)} /><Overlays /></>;
 
   if (room?.gameType === "thirtySeconds") return <><ThirtySecondsOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
-  if (room?.gameType === "whoIsWho")      return <><WhoIsWhoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
   if (room?.gameType === "sabeTudo")      return <><SabeTudoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
 
   if (view === "HOME") {

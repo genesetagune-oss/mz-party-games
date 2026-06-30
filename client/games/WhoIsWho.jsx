@@ -14,7 +14,8 @@ function autoTurnSeconds(n) {
   if (n <= 2) return 90;
   if (n === 3) return 75;
   if (n === 4) return 60;
-  if (n <= 6) return 45;
+  if (n === 5) return 50;
+  if (n === 6) return 45;
   return 40;
 }
 

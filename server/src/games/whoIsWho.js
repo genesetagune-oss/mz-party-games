@@ -9,7 +9,8 @@ function autoTurnSeconds(playerCount) {
   if (playerCount <= 2) return 90;
   if (playerCount === 3) return 75;
   if (playerCount === 4) return 60;
-  if (playerCount <= 6) return 45;
+  if (playerCount === 5) return 50;
+  if (playerCount === 6) return 45;
   return 40;
 }
 
