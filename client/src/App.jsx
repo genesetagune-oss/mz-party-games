@@ -41,11 +41,11 @@ const GAME_META = {
   whoIsWho: {
     icon: "🎭", name: "Quem Sou Eu?", color: "#4a9eff", minPlayers: 2,
     rules: [
-      "Um jogador vê uma palavra/imagem — os outros não.",
+      "Cada jogador fica com o telemóvel na testa (ecrã virado para fora).",
       "Os outros fazem perguntas de SIM/NÃO para adivinhar.",
-      "O explicador confirma com os botões no ecrã.",
-      "Cada acerto vale 1 ponto para a equipa.",
-      "Tens 90 segundos por turno. Mais pontos vence! 🏆",
+      "O jogador da vez confirma: ✅ Acertou ou ⏭ Passar.",
+      "Cada acerto vale 1 ponto. Tempo automático consoante nº de jogadores.",
+      "Primeiro a chegar a 10 pontos vence! 🏆",
     ],
   },
   sporcleMZ: {

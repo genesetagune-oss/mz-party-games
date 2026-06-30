@@ -129,11 +129,18 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     });
   });
 
-  // ✅ NOVO: SET CATEGORY (host-only, lobby only)
+  // SET CATEGORY (host-only, lobby only)
   socket.on("game:setCategory", ({ category }) => {
     const ctx = getRoomBySocket(socket.id);
     if (!ctx) return;
     ctx.room.engine?.setCategory?.(socket.id, category);
+  });
+
+  // SET SETTINGS (host-only, lobby only)
+  socket.on("game:setSettings", (settings) => {
+    const ctx = getRoomBySocket(socket.id);
+    if (!ctx) return;
+    ctx.room.engine?.setSettings?.(socket.id, settings);
   });
 
   // ---------- GAME START ----------
