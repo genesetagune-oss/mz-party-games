@@ -44,7 +44,7 @@ export class WhoIsWhoEngine extends BaseEngine {
       paused: false,
       pausedRemainingMs: 0,
       category: initialCategory,
-      deck: shuffle(getDeckForCategory(initialCategory)),
+      deck: getDeckForCategory(initialCategory, { soNomes: false }),
       deckIndex: 0,
       item: null,
       scores: {},
@@ -66,14 +66,14 @@ export class WhoIsWhoEngine extends BaseEngine {
     this.state.category = cat;
     if (!this.room.settings) this.room.settings = {};
     this.room.settings.category = cat;
-    this.state.deck = shuffle(getDeckForCategory(cat));
+    this.state.deck = getDeckForCategory(cat, { soNomes: false });
     this.state.deckIndex = 0;
     this.state.item = null;
   }
 
   ensureDeck() {
     if (!this.state.deck || this.state.deck.length === 0) {
-      this.state.deck = shuffle(getDeckForCategory(this.state.category));
+      this.state.deck = getDeckForCategory(this.state.category, { soNomes: false });
       this.state.deckIndex = 0;
     }
   }

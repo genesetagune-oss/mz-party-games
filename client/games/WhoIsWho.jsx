@@ -216,7 +216,7 @@ export default function WhoIsWho({ onBack }) {
     scoresRef.current = initScores;
     setScores(initScores);
 
-    const deck = shuffle(getDeckForCategory(catId || categoryId));
+    const deck = getDeckForCategory(catId || categoryId, { soNomes: false });
     deckRef.current = deck;
     deckIndexRef.current = 0;
 
