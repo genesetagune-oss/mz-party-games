@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CATEGORIAS as CATEGORIAS_WHO } from "../games/quemSouEuDB.js";
 import { socket } from "./socket";
 import { playSound, setMuted, isMuted } from "./utils/sound";
 
@@ -356,20 +357,6 @@ const CATS_30S = [
   { key: "GLOBAL", emoji: "🌍", label: "Global" },
   { key: "MZ",     emoji: "🇲🇿", label: "CulturaGeral MZ" },
 ];
-const CATS_WHO = [
-  { key: "mix",       emoji: "🎲", label: "Mix MZ" },
-  { key: "mz",        emoji: "🇲🇿", label: "MZ Texto" },
-  { key: "mzPic",     emoji: "🖼️",  label: "MZ Fotos" },
-  { key: "global",    emoji: "🌍", label: "Global" },
-  { key: "globalPic", emoji: "📸", label: "Global Fotos" },
-  { key: "filmes",    emoji: "🎬", label: "Filmes & Séries" },
-  { key: "musica",    emoji: "🎵", label: "Música" },
-  { key: "desporto",  emoji: "⚽", label: "Desporto" },
-  { key: "anime",     emoji: "⛩️",  label: "Anime" },
-  { key: "biblia",    emoji: "📖", label: "Bíblia" },
-  { key: "familia",   emoji: "👶", label: "Família" },
-  { key: "memes",     emoji: "😂", label: "Memes" },
-];
 
 // ✅ REFATORIZADO: LobbyScreen com botão START do host
 function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
@@ -377,7 +364,7 @@ function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
   const meta    = GAME_META[room?.gameType] || {};
   const players = room?.players || [];
   const isHost  = players.find(p => p.id === socket.id)?.isHost;
-  const hasTeams = true;
+  const hasTeams = room?.gameType === "thirtySeconds";
   const teamA   = players.filter(p => p.team === "A");
   const teamB   = players.filter(p => p.team === "B");
   const currentCat = gamePublic?.category ?? "GLOBAL";
@@ -465,15 +452,15 @@ function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
               </div>
             ) : (
               <div className="catTilesRow">
-                {CATS_WHO.map(({ key, emoji, label }) => (
+                {CATEGORIAS_WHO.map(({ id, emoji, nome }) => (
                   <button
-                    key={key}
+                    key={id}
                     type="button"
-                    className={`catTile${currentCat === key ? " selected" : ""}`}
-                    onClick={() => socket.emit("game:setCategory", { category: key })}
+                    className={`catTile${currentCat === id ? " selected" : ""}`}
+                    onClick={() => socket.emit("game:setCategory", { category: id })}
                   >
                     <span className="catTileEmoji">{emoji}</span>
-                    <span>{label}</span>
+                    <span>{nome}</span>
                   </button>
                 ))}
               </div>
@@ -638,11 +625,11 @@ export default function App() {
           if (!res?.ok) { setLoading(null); showNotice("Sala", "Sala não encontrada ou expirou."); return; }
           const gt = res.gameType;
           const n = (localStorage.getItem(LS_NAME) || "Player").trim();
+          if (gt !== "thirtySeconds") {
+            socket.emit("room:join", { roomCode: deepCode, name: n, team: "A" });
+            return;
+          }
           setLoading(null);
-          const doJoin = (team) => {
-            setLoading("A entrar na sala…");
-            socket.emit("room:join", { roomCode: deepCode, name: n, team });
-          };
           setPendingJoinCode(deepCode); setOverlayMode("JOIN"); setShowTeamOverlay(true);
         });
       };
@@ -787,8 +774,7 @@ export default function App() {
       if (!res?.ok) { setLoading(null); showNotice("Join","Sala não encontrada."); return; }
       const gt = res.gameType;
       showRulesFor(gt, () => {
-        if (gt === "sabeTudo" || gt === "sporcleMZ") {
-          setLoading("A entrar na sala…");
+        if (gt !== "thirtySeconds") {
           socket.emit("room:join",{roomCode:code,name:playerName,team:"A"});
           return;
         }
