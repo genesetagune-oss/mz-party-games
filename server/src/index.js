@@ -7,6 +7,7 @@ import { existsSync } from "fs";
 import { Server } from "socket.io";
 import { RoomManager } from "./rooms/roomManager.js";
 import { createEngine } from "./games/index.js";
+import { analyticsRouter } from "./analytics.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +19,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 app.get("/health", (_, res) => res.json({ ok: true }));
+app.use("/api", analyticsRouter);
 
 const server = http.createServer(app);
 

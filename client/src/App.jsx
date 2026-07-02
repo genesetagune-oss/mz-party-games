@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORIAS as CATEGORIAS_WHO } from "../games/quemSouEuDB.js";
 import { socket } from "./socket";
 import { playSound, setMuted, isMuted } from "./utils/sound";
+import { track, trackAppOpened } from "./analytics";
 
 import ThirtySecondsOnline from "./games/ThirtySecondsOnline";
 import WhoIsWhoOnline      from "./games/WhoIsWhoOnline";
@@ -565,6 +566,12 @@ export default function App() {
   const [showNameOverlay,  setShowNameOverlay]  = useState(false);
   const [nameOverlayJoin,  setNameOverlayJoin]  = useState(null); // { roomCode, gameType }
 
+  const roomJoinedRef   = useRef(false);
+  const gameStartedRef  = useRef(false);
+  const gameFinishedRef = useRef(false);
+  const prevPhaseRef    = useRef(null);
+  const gameTypeRef     = useRef(null);
+
   // Loading timeout — if server doesn't respond within 20s, clear loading
   useEffect(() => {
     if (!loading) return;
@@ -586,6 +593,7 @@ export default function App() {
   useEffect(() => {
     if (rejoinRef.current) return;
     rejoinRef.current = true;
+    trackAppOpened();
 
     // ── Deep link: ?join=CODE ──────────────────────────
     const params = new URLSearchParams(window.location.search);
@@ -659,6 +667,8 @@ export default function App() {
     socket.on("room:created", ({ roomCode, room }) => {
       setLoading(null); setRoomCode(roomCode); setRoom(room);
       setGamePublic(null); setGamePrivate(null); setInLobby(true);
+      gameTypeRef.current = room.gameType;
+      if (!roomJoinedRef.current) { roomJoinedRef.current = true; track("room_joined", room.gameType); }
     });
     const prevPlayerCountRef = { current: 0 };
     socket.on("room:update", ({ room, roomCode: rc }) => {
@@ -669,6 +679,11 @@ export default function App() {
       setGuestWaiting(false);
       const me = room?.players?.find(p => p.id === socket.id);
       if (me?.team) localStorage.setItem(LS_ROOM_TEAM, me.team);
+      if (me && !roomJoinedRef.current) {
+        roomJoinedRef.current = true;
+        gameTypeRef.current = room.gameType;
+        track("room_joined", room.gameType);
+      }
     });
     socket.on("room:error",  (e) => {
       setLoading(null);
@@ -678,11 +693,22 @@ export default function App() {
     socket.on("game:state", (s) => {
       setGamePublic(s.public); setGamePrivate(s.private);
       if (s.public?.phase) setInLobby(s.public.phase === "lobby");
+      const phase = s.public?.phase;
+      const prev  = prevPhaseRef.current;
+      prevPhaseRef.current = phase;
+      const gt = gameTypeRef.current;
+      if (prev === "lobby" && phase && phase !== "lobby" && !gameStartedRef.current) {
+        gameStartedRef.current = true; track("game_started", gt);
+      }
+      if (phase === "finished" && !gameFinishedRef.current) {
+        gameFinishedRef.current = true; track("game_finished", gt);
+      }
     });
     socket.on("game:error", (e) => { showNotice("Game error", `${e.code}${e.message?" — "+e.message:""}`); });
     socket.on("room:gameChanged", () => {
       setGuestWaiting(true);
       setGamePublic(null); setGamePrivate(null); setInLobby(true);
+      gameStartedRef.current = false; gameFinishedRef.current = false; prevPhaseRef.current = null;
     });
     return () => {
       socket.off("connect",onConnect); socket.off("disconnect",onDisconnect);
@@ -695,6 +721,7 @@ export default function App() {
     if (emit) socket.emit("room:leave");
     setRoom(null); setRoomCode(""); setGamePublic(null); setGamePrivate(null); setInLobby(false);
     localStorage.removeItem(LS_ROOM_CODE); localStorage.removeItem(LS_ROOM_GAME); localStorage.removeItem(LS_ROOM_TEAM);
+    roomJoinedRef.current = false; gameStartedRef.current = false; gameFinishedRef.current = false; prevPhaseRef.current = null;
   };
 
   // ✅ NOVO: Mostra regras só 1ª vez (localStorage)
