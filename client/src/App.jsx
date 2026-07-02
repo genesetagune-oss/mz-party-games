@@ -20,11 +20,11 @@ import "./App.css";
 
 // ─── Storage keys ─────────────────────────────────────────
 const LS_NAME        = "mzpg_name";
+const LS_NAME_OK     = "mzpg_name_ok";   // set when user explicitly confirms a name
 const LS_HIDE_ALERTS = "mzpg_hide_alerts";
 const LS_ROOM_CODE   = "mzpg_room_code";
 const LS_ROOM_GAME   = "mzpg_room_game";
 const LS_ROOM_TEAM   = "mzpg_room_team";
-// ✅ NOVO: localStorage para regras vistas
 const LS_RULES_SEEN  = (gt) => `mzpg_rules_seen_${gt}`;
 
 // ─── Game meta ────────────────────────────────────────────
@@ -273,6 +273,44 @@ function TeamOverlay({ mode, onConfirm, onCancel, initialName }) {
         </div>
         <button type="button" onClick={onCancel}
           style={{background:"none",border:"none",color:"rgba(234,236,244,.45)",fontSize:13,cursor:"pointer",padding:0,textAlign:"center"}}>
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NameOverlay({ gameType, onConfirm, onCancel }) {
+  const [draft, setDraft] = useState("");
+  const ok = draft.trim().length >= 1;
+  const meta = GAME_META[gameType] || {};
+  return (
+    <div className="teamOverlay" onClick={onCancel}>
+      <div className="teamCard" onClick={e => e.stopPropagation()}>
+        <div style={{ textAlign: "center" }}>
+          <div className="teamTitle">{meta.icon} {meta.name || "Sala"}</div>
+          <div style={{ fontSize: 13, opacity: .55, marginTop: 4 }}>Escreve o teu nome para entrar</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(234,236,244,.45)" }}>
+            O teu nome
+          </div>
+          <input
+            className="niceInput"
+            value={draft}
+            onChange={e => setDraft(e.target.value.slice(0, 20))}
+            placeholder="Escreve o teu nome…"
+            autoFocus autoComplete="off" maxLength={20}
+            onKeyDown={e => e.key === "Enter" && ok && onConfirm(draft.trim())}
+            style={{ fontSize: 16, fontWeight: 700 }}
+          />
+        </div>
+        <button type="button" className="btnPrimary" disabled={!ok}
+          onClick={() => onConfirm(draft.trim())} style={{ opacity: ok ? 1 : 0.4 }}>
+          Entrar na sala
+        </button>
+        <button type="button" onClick={onCancel}
+          style={{ background:"none", border:"none", color:"rgba(234,236,244,.45)", fontSize:13, cursor:"pointer", padding:0, textAlign:"center" }}>
           Cancelar
         </button>
       </div>
@@ -590,6 +628,8 @@ export default function App() {
   const rejoinRef          = useRef(false);
   const sporcleMZConfigRef = useRef({ mode: "individual", teamCount: 2 });
   const [showSporcleMZConfig, setShowSporcleMZConfig] = useState(false);
+  const [showNameOverlay,  setShowNameOverlay]  = useState(false);
+  const [nameOverlayJoin,  setNameOverlayJoin]  = useState(null); // { roomCode, gameType }
 
   // Loading timeout — if server doesn't respond within 20s, clear loading
   useEffect(() => {
@@ -620,16 +660,25 @@ export default function App() {
       // Limpa URL sem reload
       window.history.replaceState({}, "", window.location.pathname);
       const tryDeepJoin = () => {
-        setLoading("A entrar na sala…");
+        setLoading("A verificar sala…");
         socket.emit("room:preview", { roomCode: deepCode }, (res) => {
           if (!res?.ok) { setLoading(null); showNotice("Sala", "Sala não encontrada ou expirou."); return; }
           const gt = res.gameType;
-          const n = (localStorage.getItem(LS_NAME) || "Player").trim();
-          if (gt !== "thirtySeconds") {
-            socket.emit("room:join", { roomCode: deepCode, name: n, team: "A" });
+          setLoading(null);
+          const nameConfirmed = localStorage.getItem(LS_NAME_OK) === "1";
+          const savedName = (localStorage.getItem(LS_NAME) || "").trim();
+          // First time: ask for name before joining
+          if (!nameConfirmed) {
+            setNameOverlayJoin({ roomCode: deepCode, gameType: gt });
+            setShowNameOverlay(true);
             return;
           }
-          setLoading(null);
+          // Returning user: join directly
+          if (gt !== "thirtySeconds") {
+            setLoading("A entrar na sala…");
+            socket.emit("room:join", { roomCode: deepCode, name: savedName || "Player", team: "A" });
+            return;
+          }
           setPendingJoinCode(deepCode); setOverlayMode("JOIN"); setShowTeamOverlay(true);
         });
       };
@@ -743,15 +792,15 @@ export default function App() {
 
   const create30sRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("thirtySeconds", () => { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:name.trim()||"Player",team:"A"}); });
+    showRulesFor("thirtySeconds", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:name.trim()||"Player",team:"A"}); });
   };
   const createWhoIsWhoRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("whoIsWho", () => { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"whoIsWho",name:name.trim()||"Player",team:"A"}); });
+    showRulesFor("whoIsWho", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"whoIsWho",name:name.trim()||"Player",team:"A"}); });
   };
   const createSabeTudoRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("sabeTudo", () => { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"sabeTudo",name:name.trim()||"Player",team:"A"}); });
+    showRulesFor("sabeTudo", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"sabeTudo",name:name.trim()||"Player",team:"A"}); });
   };
   const createSporcleMZRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
@@ -760,6 +809,7 @@ export default function App() {
   const confirmSporcleMZConfig = (cfg) => {
     sporcleMZConfigRef.current = cfg;
     setShowSporcleMZConfig(false);
+    localStorage.setItem(LS_NAME_OK, "1");
     setLoading("A criar sala…");
     socket.emit("room:create", { gameType: "sporcleMZ", name: name.trim() || "Player", team: "A" });
   };
@@ -775,6 +825,7 @@ export default function App() {
       const gt = res.gameType;
       showRulesFor(gt, () => {
         if (gt !== "thirtySeconds") {
+          localStorage.setItem(LS_NAME_OK, "1");
           socket.emit("room:join",{roomCode:code,name:playerName,team:"A"});
           return;
         }
@@ -789,9 +840,25 @@ export default function App() {
     if (team !== "A" && team !== "B") return;
     const playerName = (draftName || name).trim() || "Player";
     setName(playerName);
+    localStorage.setItem(LS_NAME_OK, "1");
     if (overlayMode === "CREATE") { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:playerName,team}); }
     if (overlayMode === "JOIN")   { setLoading("A entrar na sala…"); socket.emit("room:join",{roomCode:pendingJoinCode,name:playerName,team}); }
     setShowTeamOverlay(false); setPendingJoinCode("");
+  };
+
+  const confirmNameAndJoin = (draftName) => {
+    const playerName = draftName.trim() || "Player";
+    setName(playerName);
+    localStorage.setItem(LS_NAME_OK, "1");
+    setShowNameOverlay(false);
+    const { roomCode: code, gameType: gt } = nameOverlayJoin;
+    setNameOverlayJoin(null);
+    if (gt !== "thirtySeconds") {
+      setLoading("A entrar na sala…");
+      socket.emit("room:join", { roomCode: code, name: playerName, team: "A" });
+    } else {
+      setPendingJoinCode(code); setOverlayMode("JOIN"); setShowTeamOverlay(true);
+    }
   };
 
   // ── Overlays ──────────────────────────────────────────────
@@ -804,6 +871,7 @@ export default function App() {
   const Overlays = () => (
     <>
       {notice    && <Notice title={notice.title} message={notice.message} dontShow={dontShowAgain} setDontShow={setDontShowAgain} onClose={closeNotice} />}
+      {showNameOverlay && nameOverlayJoin && <NameOverlay gameType={nameOverlayJoin.gameType} onConfirm={confirmNameAndJoin} onCancel={() => { setShowNameOverlay(false); setNameOverlayJoin(null); }} />}
       {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} initialName={name} />}
       {rulesFor  && <RulesModal gameType={rulesFor} onClose={closeRules} onPlay={confirmRules} />}
       {showSporcleMZConfig && <SporcleMZConfigOverlay onConfirm={confirmSporcleMZConfig} onCancel={() => setShowSporcleMZConfig(false)} />}
@@ -888,7 +956,7 @@ export default function App() {
               <span style={{ display:"block", fontSize:28, color:"rgba(255,255,255,0.85)", fontWeight:700, letterSpacing:0 }}>MZ Party</span>
               <span style={{ display:"block", fontSize:64, color:"#00C9A7", textShadow:"0 0 40px rgba(0,201,167,0.35)" }}>Games</span>
             </div>
-            <div className="heroPill" onClick={() => { const n = window.prompt("O teu nome:", name); if (n?.trim()) setName(n.trim()); }}>
+            <div className="heroPill" onClick={() => { const n = window.prompt("O teu nome:", name); if (n?.trim()) { setName(n.trim()); localStorage.setItem(LS_NAME_OK, "1"); } }}>
               <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(0,201,167,0.15)", border:"1.5px solid rgba(0,201,167,0.3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:"#00C9A7", flexShrink:0 }}>
                 {(name || "?")[0].toUpperCase()}
               </div>
