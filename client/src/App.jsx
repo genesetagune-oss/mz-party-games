@@ -166,69 +166,6 @@ function Notice({ title, message, dontShow, setDontShow, onClose }) {
   );
 }
 
-function SporcleMZConfigOverlay({ onConfirm, onCancel }) {
-  const [mode, setMode] = useState("individual");
-  return (
-    <div className="noticeOverlay" onClick={onCancel}>
-      <div className="teamCard" onClick={e => e.stopPropagation()} style={{ gap: 18, maxWidth: 340 }}>
-        <div>
-          <div className="teamTitle">🧩 Sporcle MZ</div>
-          <div className="teamSub">Configura a sala antes de criar</div>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 8 }}>
-            Modo de jogo
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {["individual", "equipas"].map(m => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                style={{
-                  flex: 1, padding: "10px 0", borderRadius: 12, fontWeight: 800, fontSize: 13,
-                  border: `2px solid ${mode === m ? "#7c5dfa" : "rgba(255,255,255,.12)"}`,
-                  background: mode === m ? "rgba(124,93,250,.18)" : "rgba(255,255,255,.04)",
-                  color: mode === m ? "#c4b5fd" : "rgba(255,255,255,.5)",
-                  cursor: "pointer",
-                }}
-              >
-                {m === "individual" ? "👤 Individual" : "👥 Equipas"}
-              </button>
-            ))}
-          </div>
-          {mode === "individual" && (
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.3)", marginTop: 6, textAlign: "center" }}>
-              Cada jogador responde no próprio telemóvel · recomendado
-            </div>
-          )}
-          {mode === "equipas" && (
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.3)", marginTop: 6, textAlign: "center" }}>
-              2 equipas · o capitão responde por toda a equipa
-            </div>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onConfirm({ mode, teamCount: 2 })}
-          className="btnPrimary"
-          style={{ width: "100%" }}
-        >
-          Criar Sala
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{ background: "none", border: "none", color: "rgba(234,236,244,.45)", fontSize: 13, cursor: "pointer", padding: 0, textAlign: "center" }}
-        >
-          Cancelar
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function TeamOverlay({ mode, onConfirm, onCancel, initialName }) {
   const [draftName, setDraftName] = useState(initialName || "");
@@ -624,9 +561,7 @@ export default function App() {
   const [switchingGame,   setSwitchingGame]   = useState(false);
   const [guestWaiting,    setGuestWaiting]    = useState(false);
 
-  const rejoinRef          = useRef(false);
-  const sporcleMZConfigRef = useRef({ mode: "individual", teamCount: 2 });
-  const [showSporcleMZConfig, setShowSporcleMZConfig] = useState(false);
+  const rejoinRef = useRef(false);
   const [showNameOverlay,  setShowNameOverlay]  = useState(false);
   const [nameOverlayJoin,  setNameOverlayJoin]  = useState(null); // { roomCode, gameType }
 
@@ -724,13 +659,6 @@ export default function App() {
     socket.on("room:created", ({ roomCode, room }) => {
       setLoading(null); setRoomCode(roomCode); setRoom(room);
       setGamePublic(null); setGamePrivate(null); setInLobby(true);
-      if (room.gameType === "sporcleMZ") {
-        const cfg = sporcleMZConfigRef.current;
-        socket.emit("game:command", { type: "SET_MODE", mode: cfg.mode });
-        if (cfg.mode === "equipas") {
-          socket.emit("game:command", { type: "CREATE_TEAMS", count: cfg.teamCount });
-        }
-      }
     });
     const prevPlayerCountRef = { current: 0 };
     socket.on("room:update", ({ room, roomCode: rc }) => {
@@ -803,14 +731,7 @@ export default function App() {
   };
   const createSporcleMZRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("sporcleMZ", () => setShowSporcleMZConfig(true));
-  };
-  const confirmSporcleMZConfig = (cfg) => {
-    sporcleMZConfigRef.current = cfg;
-    setShowSporcleMZConfig(false);
-    localStorage.setItem(LS_NAME_OK, "1");
-    setLoading("A criar sala…");
-    socket.emit("room:create", { gameType: "sporcleMZ", name: name.trim() || "Player", team: "A" });
+    showRulesFor("sporcleMZ", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"sporcleMZ",name:name.trim()||"Player",team:"A"}); });
   };
 
   const joinRoom = () => {
@@ -873,8 +794,7 @@ export default function App() {
       {showNameOverlay && nameOverlayJoin && <NameOverlay gameType={nameOverlayJoin.gameType} onConfirm={confirmNameAndJoin} onCancel={() => { setShowNameOverlay(false); setNameOverlayJoin(null); }} />}
       {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} initialName={name} />}
       {rulesFor  && <RulesModal gameType={rulesFor} onClose={closeRules} onPlay={confirmRules} />}
-      {showSporcleMZConfig && <SporcleMZConfigOverlay onConfirm={confirmSporcleMZConfig} onCancel={() => setShowSporcleMZConfig(false)} />}
-      {switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} currentGame={room?.gameType} />}
+{switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} currentGame={room?.gameType} />}
       {guestWaiting && (
         <div style={{ position:"fixed", inset:0, zIndex:2000, background:"rgba(7,9,15,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
           <div className="waitingHostDot" style={{ width:14, height:14 }} />

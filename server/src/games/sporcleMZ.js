@@ -107,7 +107,7 @@ export class SporcleMZEngine extends BaseEngine {
   constructor(params) {
     super(params);
     this.phase = "lobby";
-    this.mode  = "equipas";
+    this.mode  = "individual";
 
     this.questions = [];
     this.qIdx      = 0;
@@ -231,7 +231,7 @@ export class SporcleMZEngine extends BaseEngine {
   startGame(socketId) {
     const me = this.room.players.get(socketId);
     if (!me?.isHost || this.phase !== "lobby") return;
-    if (this.mode === "equipas" && this.equipas.size < 2) return;
+    if (this.room.players.size < 2) return;
     this.questions     = pickRound();
     this.qIdx          = 0;
     this.isFinalRound  = false;
@@ -325,12 +325,9 @@ export class SporcleMZEngine extends BaseEngine {
     this.phase = "question";
     const q = this.isFinalRound ? this.finalQuestion : this.questions[this.qIdx];
     this.timeLeft            = q.tempo;
-    this.playerAnswers       = new Map([...this.room.players.keys()].map(id => [id, new Set()]));
-    this.answerOrder         = [];
-    this.answeredShort       = new Set();
-    this.teamAnswers         = new Map([...this.equipas.keys()].map(id => [id, new Set()]));
-    this.answerOrderTeams    = [];
-    this.answeredShortTeams  = new Set();
+    this.playerAnswers = new Map([...this.room.players.keys()].map(id => [id, new Set()]));
+    this.answerOrder   = [];
+    this.answeredShort = new Set();
     this.emitState();
 
     this._setInterval(() => {
@@ -343,7 +340,6 @@ export class SporcleMZEngine extends BaseEngine {
   _reveal() {
     this._atribuirPontos();
     this.phase = "reveal";
-    if (this.mode === "equipas") this._rotateCaptains();
     this.emitState();
     this._setTimeout(() => this._nextQ(), REVEAL_SECS * 1000);
   }
@@ -355,73 +351,33 @@ export class SporcleMZEngine extends BaseEngine {
     const prevScores = new Map(this.scores);
     this.wagerResults = {};
 
-    if (this.mode === "individual") {
-      if (q.tipo === "resposta_curta") {
-        for (const [id] of this.scores) {
-          const wager = this.wagerThis.get(id) ?? 1;
-          const correct = this.answeredShort.has(id);
-          this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
-          if (!this.isFinalRound) {
-            const used = this.wagersUsed.get(id) || [];
-            this.wagersUsed.set(id, [...used, wager]);
-          }
-        }
-      } else {
-        for (const [id, acertadas] of this.playerAnswers) {
-          const wager = this.wagerThis.get(id) ?? 1;
-          const total = q.total ?? q.respostas_aceites.length;
-          const correct = total > 0 && acertadas.size / total >= 0.5;
-          this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
-          if (!this.isFinalRound) {
-            const used = this.wagersUsed.get(id) || [];
-            this.wagersUsed.set(id, [...used, wager]);
-          }
-        }
-      }
+    if (q.tipo === "resposta_curta") {
       for (const [id] of this.scores) {
-        const wagerKey = id;
-        this.wagerResults[id] = {
-          wager: this.wagerThis.get(wagerKey) ?? null,
-          delta: (this.scores.get(id) || 0) - (prevScores.get(id) || 0),
-        };
+        const wager = this.wagerThis.get(id) ?? 1;
+        const correct = this.answeredShort.has(id);
+        this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
+        if (!this.isFinalRound) {
+          const used = this.wagersUsed.get(id) || [];
+          this.wagersUsed.set(id, [...used, wager]);
+        }
       }
     } else {
-      // equipas
-      if (q.tipo === "resposta_curta") {
-        for (const [tid] of this.teamScores) {
-          const wager = this.wagerThis.get(tid) ?? 1;
-          const correct = this.answeredShortTeams.has(tid);
-          const delta = correct ? wager : -wager;
-          this.teamScores.set(tid, (this.teamScores.get(tid) || 0) + delta);
-          const team = this.equipas.get(tid);
-          team?.members.forEach(mid => this.scores.set(mid, (this.scores.get(mid) || 0) + delta));
-          if (!this.isFinalRound) {
-            const used = this.wagersUsed.get(tid) || [];
-            this.wagersUsed.set(tid, [...used, wager]);
-          }
-        }
-      } else {
-        for (const [tid, acertadas] of this.teamAnswers) {
-          const wager = this.wagerThis.get(tid) ?? 1;
-          const total = q.total ?? q.respostas_aceites.length;
-          const correct = total > 0 && acertadas.size / total >= 0.5;
-          const delta = correct ? wager : -wager;
-          this.teamScores.set(tid, (this.teamScores.get(tid) || 0) + delta);
-          const team = this.equipas.get(tid);
-          team?.members.forEach(mid => this.scores.set(mid, (this.scores.get(mid) || 0) + delta));
-          if (!this.isFinalRound) {
-            const used = this.wagersUsed.get(tid) || [];
-            this.wagersUsed.set(tid, [...used, wager]);
-          }
+      for (const [id, acertadas] of this.playerAnswers) {
+        const wager = this.wagerThis.get(id) ?? 1;
+        const total = q.total ?? q.respostas_aceites.length;
+        const correct = total > 0 && acertadas.size / total >= 0.5;
+        this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
+        if (!this.isFinalRound) {
+          const used = this.wagersUsed.get(id) || [];
+          this.wagersUsed.set(id, [...used, wager]);
         }
       }
-      for (const [id] of this.scores) {
-        const tid = this._teamOf(id);
-        this.wagerResults[id] = {
-          wager: tid ? (this.wagerThis.get(tid) ?? null) : null,
-          delta: (this.scores.get(id) || 0) - (prevScores.get(id) || 0),
-        };
-      }
+    }
+    for (const [id] of this.scores) {
+      this.wagerResults[id] = {
+        wager: this.wagerThis.get(id) ?? null,
+        delta: (this.scores.get(id) || 0) - (prevScores.get(id) || 0),
+      };
     }
   }
 
@@ -457,18 +413,12 @@ export class SporcleMZEngine extends BaseEngine {
       return;
     }
 
-    if (this.mode === "equipas") {
-      this._handleEquipasCommand(socketId, command);
-    } else {
-      this._handleIndividualCommand(socketId, command);
-    }
+    this._handleIndividualCommand(socketId, command);
   }
 
   _handleWager(socketId, command) {
     const isFinal = this.phase === "finalWager";
-    const key = this.mode === "equipas" ? this._teamOf(socketId) : socketId;
-    if (!key) return;
-    if (this.mode === "equipas" && !this._isCaptain(socketId)) return;
+    const key = socketId;
     if (this.wagerThis.get(key) !== null) return;
 
     const { value } = command;
@@ -505,47 +455,8 @@ export class SporcleMZEngine extends BaseEngine {
     }
   }
 
-  _handleLobbyCommand(socketId, command) {
-    if (command.type === "JOIN_TEAM") {
-      if (command.teamId && this.equipas.has(command.teamId)) {
-        this._assignPlayer(socketId, command.teamId);
-        this.emitState();
-      }
-      return;
-    }
-
-    if (command.type === "RENAME_TEAM") {
-      const me = this.room.players.get(socketId);
-      if (me?.isHost) return;
-      const tid = this._teamOf(socketId);
-      if (!tid) return;
-      const newName = String(command.name || "").trim();
-      if (newName.length < 2 || newName.length > 20) return;
-      const team = this.equipas.get(tid);
-      if (team) { team.name = newName; this.emitState(); }
-      return;
-    }
-
-    const me = this.room.players.get(socketId);
-    if (!me?.isHost) return;
-    switch (command.type) {
-      case "SET_MODE":
-        if (command.mode === "individual" || command.mode === "equipas") {
-          this.mode = command.mode;
-          if (command.mode === "individual") this.equipas = new Map();
-          this.emitState();
-        }
-        break;
-      case "CREATE_TEAMS":
-        if ([2, 3, 4].includes(command.count)) { this._createTeams(command.count); this.emitState(); }
-        break;
-      case "ASSIGN_PLAYER":
-        if (command.playerId && command.teamId) { this._assignPlayer(command.playerId, command.teamId); this.emitState(); }
-        break;
-      case "AUTO_SHUFFLE":
-        if (this.equipas.size >= 2) { this._autoShuffle(); this.emitState(); }
-        break;
-    }
+  _handleLobbyCommand(_socketId, _command) {
+    // no lobby commands needed for individual mode
   }
 
   _handleIndividualCommand(socketId, command) {
@@ -575,54 +486,6 @@ export class SporcleMZEngine extends BaseEngine {
     }
   }
 
-  _handleEquipasCommand(socketId, command) {
-    if (command.type === "PASS_PHONE") {
-      this._passPhone(socketId, command.toPlayerId);
-      return;
-    }
-    if (command.type !== "ANSWER" || this.phase !== "question") return;
-    if (!this._isCaptain(socketId)) return;
-
-    const tid = this._teamOf(socketId);
-    const q   = this.isFinalRound ? this.finalQuestion : this.questions[this.qIdx];
-    const answer = command.answer;
-    if (typeof answer !== "string" || !answer.trim()) return;
-
-    if (q.tipo === "resposta_curta") {
-      if (this.answeredShortTeams.has(tid)) return;
-      const { resultado } = verificarResposta(answer, q.respostas_aceites);
-      if (resultado === "acerto") {
-        this.answeredShortTeams.add(tid);
-        this.answerOrderTeams.push(tid);
-        this.io.to(socketId).emit("game:event", { type: "ANSWER_RESULT", resultado: "acerto" });
-        if (this.answeredShortTeams.size >= this.equipas.size) { this.clearTimers(); this._reveal(); }
-        else this.emitState();
-      } else {
-        const { sugestao } = verificarResposta(answer, q.respostas_aceites);
-        this.io.to(socketId).emit("game:event", { type: "ANSWER_RESULT", resultado, sugestao });
-      }
-    } else {
-      const acertadas = this.teamAnswers.get(tid) || new Set();
-      const { resultado, grupoAcertadoIndex, sugestao } = verificarResposta(answer, q.respostas_aceites, acertadas);
-      if (resultado === "acerto") { acertadas.add(`grupo_${grupoAcertadoIndex}`); this.teamAnswers.set(tid, acertadas); }
-      this.io.to(socketId).emit("game:event", { type: "ANSWER_RESULT", resultado, sugestao });
-      this.emitState();
-    }
-  }
-
-  _passPhone(fromId, toId) {
-    const tid = this._teamOf(fromId);
-    if (!tid) return;
-    const team = this.equipas.get(tid);
-    if (!team || team.currentCaptainId !== fromId || !team.members.includes(toId)) return;
-    const newIdx = team.members.indexOf(toId);
-    team.captainIdx      = newIdx;
-    team.currentCaptainId = toId;
-    this.emitState();
-    this.io.to(fromId).emit("game:event", { type: "PHONE_PASSED" });
-    this.io.to(toId).emit("game:event",   { type: "PHONE_RECEIVED" });
-  }
-
   restartGame(socketId) {
     const me = this.room.players.get(socketId);
     if (!me?.isHost) return;
@@ -641,50 +504,22 @@ export class SporcleMZEngine extends BaseEngine {
     this.wagerThis     = new Map();
     this.wagerResults  = {};
 
-    if (this.equipas.size > 0) {
-      this.equipas.forEach(t => {
-        t.members = t.members.filter(id => this.room.players.has(id));
-        t.captainIdx = 0;
-        t.currentCaptainId = t.members[0] ?? null;
-      });
-      this.teamScores = new Map([...this.equipas.keys()].map(id => [id, 0]));
-      this.scores = new Map([...this.room.players.keys()].map(id => [id, 0]));
-    } else {
-      this.scores = new Map();
-      this.teamScores = new Map();
-    }
+    this.scores = new Map();
     this.emitState();
   }
 
   onPlayerJoin(player) {
     if (!this.scores.has(player.id)) this.scores.set(player.id, 0);
-    if (this.mode !== "equipas") {
-      if (!this.wagersUsed.has(player.id)) this.wagersUsed.set(player.id, []);
-      if (!this.wagerThis.has(player.id)) this.wagerThis.set(player.id, null);
-    }
+    if (!this.wagersUsed.has(player.id)) this.wagersUsed.set(player.id, []);
+    if (!this.wagerThis.has(player.id)) this.wagerThis.set(player.id, null);
   }
 
   onPlayerLeave(player) {
     this.playerAnswers.delete(player.id);
     this.answeredShort.delete(player.id);
     this.finalVotes.delete(player.id);
-
-    if (this.mode !== "equipas") {
-      this.wagersUsed.delete(player.id);
-      this.wagerThis.delete(player.id);
-    }
-
-    const tid = this._teamOf(player.id);
-    if (tid) {
-      const team = this.equipas.get(tid);
-      if (team) {
-        team.members = team.members.filter(id => id !== player.id);
-        if (team.currentCaptainId === player.id && team.members.length > 0) {
-          team.captainIdx = team.captainIdx % team.members.length;
-          team.currentCaptainId = team.members[team.captainIdx];
-        }
-      }
-    }
+    this.wagersUsed.delete(player.id);
+    this.wagerThis.delete(player.id);
 
     if (this.phase === "wager" || this.phase === "finalWager") {
       const keys = this._wagerKeys();
@@ -710,51 +545,28 @@ export class SporcleMZEngine extends BaseEngine {
     }
     scores.sort((a, b) => b.score - a.score);
 
-    const teamRanking = [];
-    for (const [tid, score] of this.teamScores) {
-      const t = this.equipas.get(tid);
-      if (t) teamRanking.push({ id: tid, name: t.name, color: t.color, score });
-    }
-    teamRanking.sort((a, b) => b.score - a.score);
-
     const playerCounts = {};
     for (const [id, set] of this.playerAnswers) playerCounts[id] = set.size;
-    const teamCounts = {};
-    for (const [tid, set] of this.teamAnswers) teamCounts[tid] = set.size;
 
-    const equipasArr = [...this.equipas.values()].map(t => ({
-      id: t.id, name: t.name, color: t.color,
-      members: t.members.map(mid => {
-        const p = this.room.players.get(mid);
-        return { id: mid, name: p?.name || mid };
-      }),
-      currentCaptainId: t.currentCaptainId,
-    }));
-
-    const wagerKeys = this._wagerKeys();
-    const wagersIn  = wagerKeys.filter(k => this.wagerThis.get(k) !== null).length;
+    const players = [...this.room.players.keys()];
+    const wagersIn = players.filter(id => this.wagerThis.get(id) !== null).length;
 
     return {
-      phase:        this.phase,
-      mode:         this.mode,
-      qIdx:         this.qIdx,
-      totalQ:       TOTAL_ROUNDS,
-      timeLeft:     this.timeLeft,
-      wagerTimer:   this.wagerTimer,
-      voteTimer:    this.voteTimer,
+      phase:          this.phase,
+      qIdx:           this.qIdx,
+      totalQ:         TOTAL_ROUNDS,
+      timeLeft:       this.timeLeft,
+      wagerTimer:     this.wagerTimer,
+      voteTimer:      this.voteTimer,
       wagersIn,
-      totalWagerers: wagerKeys.length,
+      totalWagerers:  players.length,
       finalVoteCount: this.finalVotes.size,
       finalDifficulty: this.finalDifficulty,
-      isFinalRound: this.isFinalRound,
-      wagerResults: (this.phase === "reveal" || this.phase === "finished") ? this.wagerResults : null,
+      isFinalRound:   this.isFinalRound,
+      wagerResults:   (this.phase === "reveal" || this.phase === "finished") ? this.wagerResults : null,
       scores,
-      teamRanking,
-      equipas:      equipasArr,
       playerCounts,
-      teamCounts,
-      answeredShortCount:      this.answeredShort.size,
-      answeredShortTeamsCount: this.answeredShortTeams.size,
+      answeredShortCount: this.answeredShort.size,
       question: q ? {
         id:       q.id,
         tipo:     q.tipo,
@@ -767,20 +579,12 @@ export class SporcleMZEngine extends BaseEngine {
   }
 
   getPrivateState(playerId) {
-    const acertadas     = this.playerAnswers.get(playerId) || new Set();
-    const teamId        = this._teamOf(playerId);
-    const teamAcertadas = teamId ? (this.teamAnswers.get(teamId) || new Set()) : new Set();
-    const wagerKey      = this.mode === "equipas" ? teamId : playerId;
-
+    const acertadas = this.playerAnswers.get(playerId) || new Set();
     return {
       myAcertadas:   [...acertadas],
-      teamAcertadas: [...teamAcertadas],
       answeredShort: this.answeredShort.has(playerId),
-      teamAnswered:  teamId ? this.answeredShortTeams.has(teamId) : false,
-      isCaptain:     this._isCaptain(playerId),
-      myTeamId:      teamId,
-      myWager:       wagerKey ? (this.wagerThis.get(wagerKey) ?? null) : null,
-      myWagersUsed:  wagerKey ? (this.wagersUsed.get(wagerKey) ?? []) : [],
+      myWager:       this.wagerThis.get(playerId) ?? null,
+      myWagersUsed:  this.wagersUsed.get(playerId) ?? [],
       myVote:        this.finalVotes.get(playerId) ?? null,
     };
   }

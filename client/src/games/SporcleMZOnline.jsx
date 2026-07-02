@@ -8,68 +8,47 @@ const DIFF_DESC  = {
   dificil: "Lista grande (5+ respostas)",
 };
 
+const PLAYER_COLORS = [
+  "#7c5dfa","#00D4B4","#f97316","#ef4444","#3b82f6",
+  "#a855f7","#10b981","#f59e0b","#ec4899","#06b6d4",
+  "#84cc16","#6366f1","#14b8a6","#fb923c","#f43f5e",
+  "#8b5cf6","#22c55e","#eab308","#0ea5e9","#d946ef",
+];
+
 export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me          = room?.players?.find(p => p.id === socket.id);
   const isHost      = !!me?.isHost;
   const playerCount = (room?.players ?? []).filter(p => p.connected !== false).length;
 
-  const phase        = gamePublic?.phase           ?? "lobby";
-  const mode         = gamePublic?.mode            ?? "individual";
-  const qIdx         = gamePublic?.qIdx            ?? 0;
-  const totalQ       = gamePublic?.totalQ          ?? 11;
-  const timeLeft     = gamePublic?.timeLeft        ?? 0;
-  const wagerTimer   = gamePublic?.wagerTimer      ?? 0;
-  const voteTimer    = gamePublic?.voteTimer       ?? 0;
-  const wagersIn     = gamePublic?.wagersIn        ?? 0;
-  const totalWagerers = gamePublic?.totalWagerers  ?? 0;
-  const finalVoteCount = gamePublic?.finalVoteCount ?? 0;
+  const phase          = gamePublic?.phase           ?? "lobby";
+  const qIdx           = gamePublic?.qIdx            ?? 0;
+  const totalQ         = gamePublic?.totalQ          ?? 11;
+  const timeLeft       = gamePublic?.timeLeft        ?? 0;
+  const wagerTimer     = gamePublic?.wagerTimer      ?? 0;
+  const voteTimer      = gamePublic?.voteTimer       ?? 0;
+  const wagersIn       = gamePublic?.wagersIn        ?? 0;
+  const totalWagerers  = gamePublic?.totalWagerers   ?? 0;
+  const finalVoteCount = gamePublic?.finalVoteCount  ?? 0;
   const finalDifficulty = gamePublic?.finalDifficulty ?? null;
-  const isFinalRound = gamePublic?.isFinalRound    ?? false;
-  const wagerResults = gamePublic?.wagerResults    ?? null;
-  const scores       = gamePublic?.scores          ?? [];
-  const teamRanking  = gamePublic?.teamRanking     ?? [];
-  const equipas      = gamePublic?.equipas         ?? [];
-  const question     = gamePublic?.question        ?? null;
-  const playerCounts             = gamePublic?.playerCounts             ?? {};
-  const teamCounts               = gamePublic?.teamCounts               ?? {};
-  const answeredShortCount       = gamePublic?.answeredShortCount       ?? 0;
-  const answeredShortTeamsCount  = gamePublic?.answeredShortTeamsCount  ?? 0;
+  const isFinalRound   = gamePublic?.isFinalRound    ?? false;
+  const wagerResults   = gamePublic?.wagerResults    ?? null;
+  const scores         = gamePublic?.scores          ?? [];
+  const question       = gamePublic?.question        ?? null;
+  const playerCounts   = gamePublic?.playerCounts    ?? {};
+  const answeredShortCount = gamePublic?.answeredShortCount ?? 0;
 
-  const myAcertadas   = new Set(gamePrivate?.myAcertadas   ?? []);
-  const teamAcertadas = new Set(gamePrivate?.teamAcertadas ?? []);
+  const myAcertadas   = new Set(gamePrivate?.myAcertadas  ?? []);
   const answeredShort = gamePrivate?.answeredShort ?? false;
-  const teamAnswered  = gamePrivate?.teamAnswered  ?? false;
-  const isCaptain     = gamePrivate?.isCaptain     ?? false;
-  const myTeamId      = gamePrivate?.myTeamId      ?? null;
   const myWager       = gamePrivate?.myWager       ?? null;
   const myWagersUsed  = gamePrivate?.myWagersUsed  ?? [];
   const myVote        = gamePrivate?.myVote        ?? null;
 
-  const [input, setInput]                 = useState("");
-  const [feedback, setFeedback]           = useState(null);
-  const [passPhoneOpen, setPassPhoneOpen] = useState(false);
-  const [editingTeamId, setEditingTeamId] = useState(null);
-  const [teamNameDraft, setTeamNameDraft] = useState("");
-  const inputRef         = useRef(null);
-  const fbTimRef         = useRef(null);
-  const teamNameInputRef = useRef(null);
-
-  useEffect(() => {
-    if (editingTeamId) setTimeout(() => teamNameInputRef.current?.focus(), 30);
-  }, [editingTeamId]);
-
-  function submitTeamRename() {
-    const draft = teamNameDraft.trim();
-    if (draft.length >= 2 && draft.length <= 20) {
-      socket.emit("game:command", { type: "RENAME_TEAM", name: draft });
-    }
-    setEditingTeamId(null);
-  }
+  const [input, setInput]       = useState("");
+  const [feedback, setFeedback] = useState(null);
+  const inputRef = useRef(null);
+  const fbTimRef = useRef(null);
 
   const leaveToMenu = () => { socket.emit("room:leave"); onBack?.(); };
-
-  const myTeam  = equipas.find(t => t.id === myTeamId) ?? null;
-  const captain = myTeam ? room?.players?.find(p => p.id === myTeam.currentCaptainId) : null;
 
   const timerPct   = question ? (timeLeft / question.tempo) * 100 : 0;
   const timerColor = timeLeft > (question?.tempo ?? 15) * 0.5
@@ -88,7 +67,6 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
     if (phase === "question") {
       setInput("");
       setFeedback(null);
-      setPassPhoneOpen(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [phase, qIdx]);
@@ -104,12 +82,6 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
         };
         setFeedback(msgs[evt.resultado] ?? null);
         if (evt.resultado === "acerto" || evt.resultado === "erro") setInput("");
-      } else if (evt.type === "PHONE_RECEIVED") {
-        setFeedback({ tipo: "acerto", msg: "📲 Passaram-te o telemóvel! É a tua vez!" });
-        setTimeout(() => inputRef.current?.focus(), 100);
-      } else if (evt.type === "PHONE_PASSED") {
-        setFeedback({ tipo: "duplicado", msg: "📲 Telemóvel passado!" });
-        setPassPhoneOpen(false);
       }
     };
     socket.on("game:event", handle);
@@ -133,24 +105,7 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
 
   // ── LOBBY ─────────────────────────────────────────────────
   if (phase === "lobby") {
-    const assignedIds         = new Set(equipas.flatMap(t => t.members.map(m => m.id)));
-    const unassigned          = room?.players?.filter(p => !assignedIds.has(p.id)) ?? [];
-    const allTeamsHaveMembers = equipas.every(t => t.members.length > 0);
-    const canStart = playerCount >= 2 && equipas.length >= 2 &&
-      unassigned.length === 0 && allTeamsHaveMembers;
-
-    const disabledReason = !canStart
-      ? playerCount < 2
-        ? `Faltam ${2 - playerCount} jogador${2 - playerCount !== 1 ? "es" : ""} para começar`
-        : equipas.length < 2
-          ? "O host ainda não criou as equipas"
-          : unassigned.length > 0
-            ? `${unassigned.length} jogador${unassigned.length !== 1 ? "es" : ""} ainda sem equipa`
-            : !allTeamsHaveMembers
-              ? "Alguma equipa está vazia"
-              : null
-      : null;
-
+    const canStart = playerCount >= 2;
     return (
       <div className="appBg">
         <div className="shell shellGame">
@@ -158,7 +113,7 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
             <button className="btnGhost" onClick={leaveToMenu} type="button">← Menu</button>
             <div className="headerTitleBlock">
               <div className="h1Brand">MZ Party Games</div>
-              <div className="h2Game">Sporcle MZ · Equipas</div>
+              <div className="h2Game">Sporcle MZ</div>
               <div style={{ opacity: .6, fontSize: 11, marginTop: 2 }}>
                 Sala: <b>{roomCode}</b> · {playerCount} jogador{playerCount !== 1 ? "es" : ""}
               </div>
@@ -181,117 +136,39 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
               <div style={{ fontSize: 11, opacity: .50, marginTop: 6 }}>Toca para partilhar</div>
             </button>
 
-            {/* ── Host: criar equipas ── */}
-            {isHost && (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 8 }}>
-                  {equipas.length === 0 ? "Criar equipas:" : "Alterar equipas:"}
-                </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: equipas.length > 0 ? 8 : 0 }}>
-                  {[2, 3, 4].map(n => (
-                    <button key={n} type="button"
-                      onClick={() => socket.emit("game:command", { type: "CREATE_TEAMS", count: n })}
-                      style={{
-                        flex: 1, padding: "10px 0", borderRadius: 12, fontWeight: 800, fontSize: 13,
-                        border: equipas.length === n ? "2px solid #7c5dfa" : "1.5px solid rgba(255,255,255,.15)",
-                        background: equipas.length === n ? "rgba(124,93,250,.2)" : "rgba(255,255,255,.05)",
-                        color: equipas.length === n ? "#c4b5fd" : "rgba(255,255,255,.6)", cursor: "pointer",
-                      }}>
-                      {n} equipas
-                    </button>
-                  ))}
-                </div>
-                {equipas.length >= 2 && (
-                  <button type="button"
-                    onClick={() => socket.emit("game:command", { type: "AUTO_SHUFFLE" })}
-                    style={{ width: "100%", padding: "9px 0", borderRadius: 12, fontWeight: 700, fontSize: 13, border: "1.5px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.55)", cursor: "pointer" }}>
-                    🔀 Distribuir automaticamente
-                  </button>
-                )}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 8 }}>
+                JOGADORES {playerCount}/20
               </div>
-            )}
-
-            {equipas.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
-                {unassigned.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 6 }}>Por atribuir</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {unassigned.map(p => (
-                        <div key={p.id} style={{ padding: "5px 12px", borderRadius: 20, fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", color: "rgba(255,255,255,.7)", display: "flex", alignItems: "center", gap: 5 }}>
-                          {p.name}{p.id === socket.id && <span style={{ opacity: .4 }}>(tu)</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {equipas.map(team => {
-                  const isMyTeamSlot = myTeamId === team.id;
-                  const canEditName  = isMyTeamSlot && !isHost;
-                  const isEditing    = editingTeamId === team.id;
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {(room?.players ?? []).map((p, i) => {
+                  const color   = PLAYER_COLORS[i % PLAYER_COLORS.length];
+                  const initial = (p.name || "?")[0].toUpperCase();
+                  const isMe    = p.id === socket.id;
                   return (
-                    <div key={team.id} style={{ border: `1.5px solid ${team.color}40`, background: `${team.color}0d`, borderRadius: 14, padding: "10px 14px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: team.members.length > 0 ? 8 : 0 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: team.color, flexShrink: 0 }} />
-                        {isEditing ? (
-                          <input ref={teamNameInputRef} value={teamNameDraft}
-                            onChange={e => setTeamNameDraft(e.target.value)}
-                            onBlur={submitTeamRename}
-                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); submitTeamRename(); } if (e.key === "Escape") setEditingTeamId(null); }}
-                            maxLength={20}
-                            style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1.5px solid ${team.color}`, color: team.color, fontWeight: 900, fontSize: 13, outline: "none", padding: "0 2px" }}
-                          />
-                        ) : (
-                          <span style={{ fontWeight: 900, fontSize: 13, color: team.color, flex: 1 }}>{team.name}</span>
-                        )}
-                        {canEditName && !isEditing && (
-                          <button type="button" onClick={() => { setEditingTeamId(team.id); setTeamNameDraft(team.name); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: .45, padding: "0 2px", lineHeight: 1 }}>✏️</button>
-                        )}
-                        <span style={{ fontSize: 11, color: "rgba(255,255,255,.3)", flexShrink: 0 }}>{team.members.length} jogador{team.members.length !== 1 ? "es" : ""}</span>
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: `1px solid ${isMe ? "rgba(255,255,255,.12)" : "transparent"}` }}>
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${color}22`, border: `2px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color, flexShrink: 0 }}>
+                        {initial}
                       </div>
-                      {team.members.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          {team.members.map(m => (
-                            <div key={m.id} style={{ padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "rgba(255,255,255,.08)", color: "#fff", display: "flex", alignItems: "center", gap: 5 }}>
-                              {m.name}{m.id === socket.id && <span style={{ opacity: .5 }}>(tu)</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{p.name}{isMe ? " (tu)" : ""}</span>
+                      {p.isHost && <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: ".06em", color: "#7c5dfa", background: "rgba(124,93,250,.15)", border: "1px solid rgba(124,93,250,.4)", borderRadius: 6, padding: "2px 7px" }}>HOST</span>}
                     </div>
                   );
                 })}
-
-                {equipas.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 8 }}>
-                      {myTeamId ? "Mudar de equipa:" : "Escolhe a tua equipa:"}
-                    </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {equipas.map(t => {
-                        const isMyTeam = myTeamId === t.id;
-                        return (
-                          <button key={t.id} type="button" disabled={isMyTeam}
-                            onClick={() => socket.emit("game:command", { type: "JOIN_TEAM", teamId: t.id })}
-                            style={{ flex: 1, minWidth: 80, padding: "10px 6px", borderRadius: 12, fontWeight: 800, fontSize: 12, border: `2px solid ${isMyTeam ? t.color : `${t.color}60`}`, background: isMyTeam ? `${t.color}25` : "rgba(255,255,255,.04)", color: isMyTeam ? t.color : "rgba(255,255,255,.55)", cursor: isMyTeam ? "default" : "pointer" }}>
-                            {isMyTeam ? "✓ " : ""}{t.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
-            )}
+            </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
               {isHost ? (
                 <>
                   <button className="btnPrimary" disabled={!canStart} onClick={() => socket.emit("game:start")} type="button" style={{ width: "100%", opacity: canStart ? 1 : 0.55 }}>
-                    {canStart ? "▶ Começar Jogo" : "Aguarda…"}
+                    {canStart ? "▶ Começar Jogo" : "Aguarda mais jogadores…"}
                   </button>
-                  {disabledReason && <div style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.35)" }}>{disabledReason}</div>}
+                  {!canStart && (
+                    <div style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.35)" }}>
+                      Falta {2 - playerCount} jogador{2 - playerCount !== 1 ? "es" : ""} para começar
+                    </div>
+                  )}
                 </>
               ) : (
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", textAlign: "center" }}>Aguardando o host iniciar…</div>
@@ -307,8 +184,6 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
   if (phase === "wager" || phase === "finalWager") {
     const isFinal = phase === "finalWager";
     const options = isFinal ? [0, 10, 20] : [1,2,3,4,5,6,7,8,9,10];
-    const cantWager = mode === "equipas" && !isCaptain;
-    const isTeams = mode === "equipas";
 
     return (
       <div className="appBg">
@@ -334,11 +209,7 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
               </div>
             </div>
 
-            {cantWager ? (
-              <div style={{ textAlign: "center", padding: "20px 0", color: "rgba(255,255,255,.5)", fontSize: 14 }}>
-                O capitão da tua equipa está a apostar…
-              </div>
-            ) : myWager !== null ? (
+            {myWager !== null ? (
               <div style={{ textAlign: "center", padding: "20px 0" }}>
                 <div style={{ fontSize: 52, fontWeight: 900, color: "#00e5b0", lineHeight: 1 }}>{myWager}</div>
                 <div style={{ fontSize: 14, color: "rgba(255,255,255,.45)", marginTop: 8 }}>pontos apostados ✓</div>
@@ -372,20 +243,17 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
             )}
 
             <div style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.35)" }}>
-              {wagersIn} / {totalWagerers} {isTeams ? "equipas" : "jogadores"} prontos
+              {wagersIn} / {totalWagerers} jogadores prontos
             </div>
 
-            {/* Mini scores */}
             <div style={{ marginTop: "auto" }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 6 }}>Pontuação</div>
-              {(isTeams ? teamRanking : scores.slice(0, 5)).map((s, i) => {
-                const isMe = isTeams ? s.id === myTeamId : s.id === socket.id;
-                const color = isTeams ? s.color : undefined;
+              {scores.slice(0, 5).map((s, i) => {
+                const isMe = s.id === socket.id;
                 return (
                   <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, opacity: isMe ? 1 : 0.6 }}>
-                    {isTeams && <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />}
                     <span style={{ width: 20, fontSize: 11, color: "rgba(255,255,255,.4)" }}>{i + 1}º</span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: isTeams ? color : undefined }}>{s.name}{isMe && !isTeams ? " (tu)" : ""}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{s.name}{isMe ? " (tu)" : ""}</span>
                     <span style={{ fontWeight: 900, color: s.score < 0 ? "#ef4444" : "#00e5b0", fontSize: 13 }}>{s.score > 0 ? "+" : ""}{s.score}</span>
                   </div>
                 );
@@ -479,57 +347,6 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
 
   // ── FINISHED ──────────────────────────────────────────────
   if (phase === "finished") {
-    const isTeams = mode === "equipas";
-
-    if (isTeams) {
-      const topTeam    = teamRanking[0];
-      const myTeamRank = teamRanking.findIndex(t => t.id === myTeamId);
-      return (
-        <div className="appBg">
-          <div className="shell shellGame">
-            <header className="gameHeader">
-              <button className="btnGhost" onClick={leaveToMenu} type="button">← Menu</button>
-              <div className="headerTitleBlock">
-                <div className="h1Brand">MZ Party Games</div>
-                <div className="h2Game">Sporcle MZ · Resultado</div>
-              </div>
-              <div className="timerPill">🏆</div>
-            </header>
-            <main className="gameMain" style={{ gap: 16 }}>
-              <div style={{ textAlign: "center", paddingTop: 8 }}>
-                <div style={{ fontSize: 48 }}>🏆</div>
-                <div style={{ fontWeight: 900, fontSize: 20, marginTop: 8, color: topTeam?.color }}>{topTeam?.name} venceram!</div>
-                {myTeamId && <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 4 }}>A tua equipa ficou em {myTeamRank + 1}º lugar</div>}
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {teamRanking.map((t, i) => (
-                  <div key={t.id} style={{ background: `${t.color}1a`, border: `1.5px solid ${t.color}50`, borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 20, width: 28, textAlign: "center" }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}º`}</span>
-                    <span style={{ flex: 1, fontWeight: 800, color: t.color }}>{t.name}</span>
-                    {t.id === myTeamId && <span style={{ fontSize: 11, color: "rgba(255,255,255,.35)" }}>(tu)</span>}
-                    <span style={{ fontWeight: 900, fontSize: 18, color: t.score < 0 ? "#ef4444" : "#00e5b0" }}>{t.score > 0 ? "+" : ""}{t.score} pts</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-                {isHost ? (
-                  <>
-                    <button className="btnPrimary" onClick={() => socket.emit("game:restart")} type="button">🔁 Jogar outra vez</button>
-                    <button className="btnPrimary" onClick={onSwitchGame} type="button">🎮 Mudar Jogo</button>
-                  </>
-                ) : (
-                  <div className="waitingHostMsg"><div className="waitingHostDot" />Host a decidir próximo passo...</div>
-                )}
-                <button className="btnGhost" onClick={leaveToMenu} type="button">← Menu</button>
-              </div>
-            </main>
-          </div>
-        </div>
-      );
-    }
-
     const winner = scores[0];
     const myRank = scores.findIndex(s => s.id === socket.id);
     return (
@@ -585,17 +402,12 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
   }
 
   // ── QUESTION / REVEAL ────────────────────────────────────
-  const isTeams     = mode === "equipas";
   const isLista     = question?.tipo === "lista";
   const qTotal      = question?.total ?? 0;
-  const myCount     = isTeams ? teamAcertadas.size : myAcertadas.size;
+  const myCount     = myAcertadas.size;
   const isRevealing = phase === "reveal";
 
-  const teammates = myTeam ? myTeam.members.filter(m => m.id !== socket.id) : [];
-
-  const isAnswerBlocked = mode === "equipas"
-    ? (!isCaptain || (question?.tipo === "resposta_curta" && teamAnswered))
-    : (question?.tipo === "resposta_curta" && answeredShort);
+  const isAnswerBlocked = question?.tipo === "resposta_curta" && answeredShort;
 
   function submitAnswer() {
     if (!input.trim() || phase !== "question" || isAnswerBlocked) return;
@@ -613,9 +425,7 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
           <button className="btnGhost" onClick={leaveToMenu} type="button">← Menu</button>
           <div className="headerTitleBlock">
             <div className="h1Brand">MZ Party Games</div>
-            <div className="h2Game" style={isTeams && myTeam ? { color: myTeam.color } : undefined}>
-              {isTeams && myTeam ? myTeam.name : "Sporcle MZ · Online"}
-            </div>
+            <div className="h2Game">Sporcle MZ · Online</div>
             <div style={{ opacity: .6, fontSize: 11, marginTop: 2 }}>{roundLabel}</div>
           </div>
           <div className="timerPill" style={{ color: phase === "question" ? timerColor : undefined }}>
@@ -625,7 +435,7 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
 
         <main className="gameMain" style={{ gap: 10 }}>
 
-          {/* Progress dots — 11 total */}
+          {/* Progress dots */}
           <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap" }}>
             {Array.from({ length: totalQ }, (_, i) => {
               const isCurrent = isFinalRound ? i === totalQ - 1 : i === qIdx;
@@ -647,25 +457,6 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
             </div>
           )}
 
-          {/* Team progress bars (lista, equipas) */}
-          {isTeams && isLista && phase === "question" && equipas.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {equipas.map(t => {
-                const cnt = teamCounts[t.id] ?? 0;
-                const pct = qTotal > 0 ? (cnt / qTotal) * 100 : 0;
-                return (
-                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: t.color, width: 60, flexShrink: 0 }}>{t.name}</span>
-                    <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.08)", borderRadius: 99, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: t.color, borderRadius: 99, transition: "width .4s" }} />
-                    </div>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)", width: 30, textAlign: "right" }}>{cnt}/{qTotal}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           {/* Question card */}
           {question && (
             <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "16px 14px" }}>
@@ -674,7 +465,6 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
               </div>
               <div style={{ fontSize: "clamp(14px,3.5vw,18px)", fontWeight: 800, lineHeight: 1.4 }}>{question.pergunta}</div>
 
-              {/* Lista answer slots */}
               {isLista && phase === "question" && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
                   {Array.from({ length: qTotal }, (_, i) => {
@@ -688,12 +478,10 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
                 </div>
               )}
 
-              {/* Reveal: correct answers */}
               {isRevealing && question.respostas_aceites && (
                 <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {question.respostas_aceites.map((grupo, i) => {
-                    const acertadasSet = isTeams ? teamAcertadas : myAcertadas;
-                    const gotIt = acertadasSet.has(`grupo_${i}`);
+                    const gotIt = myAcertadas.has(`grupo_${i}`);
                     return (
                       <span key={i} style={{ padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: gotIt ? "rgba(0,200,100,.18)" : "rgba(255,255,255,.07)", border: `1px solid ${gotIt ? "rgba(0,200,100,.4)" : "rgba(255,255,255,.12)"}`, color: gotIt ? "#4ade80" : "rgba(255,255,255,.5)" }}>
                         {gotIt ? "✓ " : ""}{grupo[0]}
@@ -705,29 +493,12 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
             </div>
           )}
 
-          {/* Captain indicator */}
-          {isTeams && phase === "question" && myTeam && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: `${myTeam.color}15`, border: `1px solid ${myTeam.color}40`, borderRadius: 10, fontSize: 12 }}>
-              <span>👑</span>
-              <span style={{ flex: 1, color: "rgba(255,255,255,.7)" }}>
-                {isCaptain
-                  ? <b style={{ color: myTeam.color }}>És o capitão — responde!</b>
-                  : <span><b style={{ color: myTeam.color }}>{captain?.name ?? "?"}</b> está a responder</span>
-                }
-              </span>
-            </div>
-          )}
-
           {/* Answer counter */}
           {phase === "question" && (
             <div style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.4)", fontWeight: 700 }}>
               {isLista
-                ? isTeams
-                  ? `${Object.values(teamCounts).reduce((a, b) => a + b, 0)} respostas da equipa`
-                  : `${Object.values(playerCounts).reduce((a, b) => a + b, 0)} respostas enviadas`
-                : isTeams
-                  ? `${answeredShortTeamsCount} / ${equipas.length} equipas responderam`
-                  : `${answeredShortCount} / ${playerCount} responderam`
+                ? `${Object.values(playerCounts).reduce((a, b) => a + b, 0)} respostas enviadas`
+                : `${answeredShortCount} / ${playerCount} responderam`
               }
             </div>
           )}
@@ -746,99 +517,53 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
 
           {/* Input area */}
           {phase === "question" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={handleKey}
-                  onPaste={handlePaste}
-                  placeholder={
-                    isTeams
-                      ? isCaptain
-                        ? isLista ? `Acerta ${qTotal - myCount} restante${qTotal - myCount !== 1 ? "s" : ""}…` : teamAnswered ? "A equipa já respondeu!" : "Escreve a resposta…"
-                        : "Aguarda o capitão…"
-                      : isLista
-                        ? `Acerta ${qTotal - myCount} restante${qTotal - myCount !== 1 ? "s" : ""}…`
-                        : answeredShort ? "Aguarda o próximo…" : "Escreve a resposta…"
-                  }
-                  disabled={isAnswerBlocked}
-                  autoComplete="off" autoCorrect="off" spellCheck={false} inputMode="text"
-                  aria-label="Campo de resposta"
-                  className="niceInput"
-                  style={{ flex: 1, fontSize: 16, opacity: isAnswerBlocked ? 0.45 : 1 }}
-                />
-                <button onClick={submitAnswer} type="button" disabled={isAnswerBlocked} aria-label="Enviar resposta"
-                  style={{ background: "#7c5dfa", border: "none", borderRadius: 12, padding: "0 18px", color: "#fff", fontWeight: 900, fontSize: 18, cursor: isAnswerBlocked ? "not-allowed" : "pointer", flexShrink: 0, opacity: isAnswerBlocked ? 0.4 : 1 }}>↵</button>
-              </div>
-
-              {isTeams && isCaptain && teammates.length > 0 && (
-                <div style={{ position: "relative" }}>
-                  <button type="button" onClick={() => setPassPhoneOpen(v => !v)}
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 10, fontWeight: 700, fontSize: 12, border: "1.5px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.6)", cursor: "pointer" }}>
-                    📲 Passar telemóvel
-                  </button>
-                  {passPhoneOpen && (
-                    <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: "#1a1a2e", border: "1px solid rgba(255,255,255,.15)", borderRadius: 12, padding: 8, zIndex: 10, display: "flex", flexDirection: "column", gap: 4 }}>
-                      {teammates.map(m => (
-                        <button key={m.id} type="button"
-                          onClick={() => { socket.emit("game:command", { type: "PASS_PHONE", toPlayerId: m.id }); setPassPhoneOpen(false); }}
-                          style={{ padding: "8px 12px", borderRadius: 8, fontWeight: 700, fontSize: 13, border: "none", background: "rgba(255,255,255,.07)", color: "#fff", cursor: "pointer", textAlign: "left" }}>
-                          📲 {m.name}
-                        </button>
-                      ))}
-                      <button type="button" onClick={() => setPassPhoneOpen(false)}
-                        style={{ padding: "6px", borderRadius: 8, fontSize: 11, border: "none", background: "transparent", color: "rgba(255,255,255,.35)", cursor: "pointer" }}>
-                        Cancelar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                onPaste={handlePaste}
+                placeholder={
+                  isLista
+                    ? `Acerta ${qTotal - myCount} restante${qTotal - myCount !== 1 ? "s" : ""}…`
+                    : answeredShort ? "Aguarda o próximo…" : "Escreve a resposta…"
+                }
+                disabled={isAnswerBlocked}
+                autoComplete="off" autoCorrect="off" spellCheck={false} inputMode="text"
+                aria-label="Campo de resposta"
+                className="niceInput"
+                style={{ flex: 1, fontSize: 16, opacity: isAnswerBlocked ? 0.45 : 1 }}
+              />
+              <button onClick={submitAnswer} type="button" disabled={isAnswerBlocked} aria-label="Enviar resposta"
+                style={{ background: "#7c5dfa", border: "none", borderRadius: 12, padding: "0 18px", color: "#fff", fontWeight: 900, fontSize: 18, cursor: isAnswerBlocked ? "not-allowed" : "pointer", flexShrink: 0, opacity: isAnswerBlocked ? 0.4 : 1 }}>↵</button>
             </div>
           )}
 
-          {phase === "question" && !isLista && !isTeams && answeredShort && (
+          {phase === "question" && !isLista && answeredShort && (
             <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,.45)" }}>✓ Resposta enviada · aguarda os outros…</div>
           )}
-          {phase === "question" && !isLista && isTeams && !isCaptain && (
-            <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,.45)" }}>Aguarda o capitão da tua equipa responder…</div>
-          )}
-          {phase === "question" && !isLista && isTeams && isCaptain && teamAnswered && (
-            <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,.45)" }}>✓ Equipa respondeu · aguarda as outras…</div>
-          )}
 
-          {/* Reveal leaderboard with wager results */}
+          {/* Reveal leaderboard */}
           {phase === "reveal" && (
             <div style={{ marginTop: "auto", paddingTop: 4 }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: "rgba(255,255,255,.3)", marginBottom: 8 }}>
-                {isTeams ? "Equipas" : "Pontuação"}
+                Pontuação
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                {isTeams
-                  ? teamRanking.map((t, i) => (
-                      <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, opacity: t.id === myTeamId ? 1 : 0.65 }}>
-                        <span style={{ width: 20, fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,.4)" }}>{i + 1}º</span>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: t.color }}>{t.name}</span>
-                        <span style={{ fontWeight: 900, color: t.score < 0 ? "#ef4444" : "#00e5b0", fontSize: 13 }}>{t.score > 0 ? "+" : ""}{t.score} pts</span>
-                      </div>
-                    ))
-                  : scores.slice(0, 5).map((s, i) => {
-                      const wr = wagerResults?.[s.id];
-                      const isMe = s.id === socket.id;
-                      const deltaColor = !wr ? "#00e5b0" : wr.delta > 0 ? "#4ade80" : wr.delta < 0 ? "#f87171" : "rgba(255,255,255,.4)";
-                      return (
-                        <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, opacity: isMe ? 1 : 0.65 }}>
-                          <span style={{ width: 20, fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,.4)" }}>{i + 1}º</span>
-                          <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{s.name}{isMe ? " (tu)" : ""}</span>
-                          {wr && <span style={{ fontSize: 11, color: deltaColor, fontWeight: 800 }}>{wr.delta > 0 ? "+" : ""}{wr.delta}</span>}
-                          <span style={{ fontWeight: 900, color: s.score < 0 ? "#ef4444" : "#00e5b0", fontSize: 13 }}>{s.score > 0 ? "+" : ""}{s.score}</span>
-                        </div>
-                      );
-                    })
-                }
+                {scores.slice(0, 5).map((s, i) => {
+                  const wr    = wagerResults?.[s.id];
+                  const isMe  = s.id === socket.id;
+                  const deltaColor = !wr ? "#00e5b0" : wr.delta > 0 ? "#4ade80" : wr.delta < 0 ? "#f87171" : "rgba(255,255,255,.4)";
+                  return (
+                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, opacity: isMe ? 1 : 0.65 }}>
+                      <span style={{ width: 20, fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,.4)" }}>{i + 1}º</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{s.name}{isMe ? " (tu)" : ""}</span>
+                      {wr && <span style={{ fontSize: 11, color: deltaColor, fontWeight: 800 }}>{wr.delta > 0 ? "+" : ""}{wr.delta}</span>}
+                      <span style={{ fontWeight: 900, color: s.score < 0 ? "#ef4444" : "#00e5b0", fontSize: 13 }}>{s.score > 0 ? "+" : ""}{s.score}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

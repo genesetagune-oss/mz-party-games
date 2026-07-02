@@ -13,7 +13,7 @@ export class RoomManager {
 
     const team = hostTeam === "A" || hostTeam === "B" ? hostTeam : "A";
 
-    const maxPlayers = 8;
+    const maxPlayers = gameType === "sporcleMZ" ? 20 : 8;
 
     const room = {
       code,
