@@ -322,7 +322,6 @@ function GameSwitchOverlay({ onSwitch, onCancel, currentGame }) {
   const games = [
     { key: "thirtySeconds", icon: "⏱️", name: "30 Segundos" },
     { key: "whoIsWho",      icon: "🎭", name: "Quem Sou Eu?" },
-    { key: "sabeTudo",      icon: "🧠", name: "Sabe Tudo?" },
     { key: "sporcleMZ",     icon: "🧩", name: "Sporcle MZ" },
   ].filter(g => g.key !== currentGame);
   return (

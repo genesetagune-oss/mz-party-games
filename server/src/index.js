@@ -172,7 +172,7 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     const player = room.players.get(socket.id);
     if (!player?.isHost) return;
 
-    const valid = ["thirtySeconds", "whoIsWho", "sabeTudo", "sporcleMZ"];
+    const valid = ["thirtySeconds", "whoIsWho", "sporcleMZ"];
     if (!valid.includes(gameType)) return;
 
     room.engine?.destroy?.();
