@@ -593,7 +593,7 @@ export default function App() {
   useEffect(() => {
     if (rejoinRef.current) return;
     rejoinRef.current = true;
-    trackAppOpened();
+    try { trackAppOpened(); } catch {}
 
     // ── Deep link: ?join=CODE ──────────────────────────
     const params = new URLSearchParams(window.location.search);

@@ -22,9 +22,11 @@ export function track(eventName, gameName = null) {
 }
 
 export function trackAppOpened() {
-  const today   = new Date().toISOString().slice(0, 10);
-  const lastDay = localStorage.getItem(LS_LAST_VISIT);
-  track("app_opened");
-  if (lastDay && lastDay !== today) track("returned");
-  localStorage.setItem(LS_LAST_VISIT, today);
+  try {
+    const today   = new Date().toISOString().slice(0, 10);
+    const lastDay = localStorage.getItem(LS_LAST_VISIT);
+    track("app_opened");
+    if (lastDay && lastDay !== today) track("returned");
+    localStorage.setItem(LS_LAST_VISIT, today);
+  } catch {}
 }
