@@ -7,6 +7,9 @@ const SWITCH_SECONDS     = 5;
 const WIN_POINTS         = 10;
 const MAX_PLAYERS        = 8;
 const TURN_OPTIONS       = [null, 30, 45, 60, 75, 90, 120];
+// Ratio of turn time remaining when the "table can hint now" prompt unlocks.
+// 0.45 → 90s turn shows it at ~40s left; 60s → ~27s; 40s → ~18s.
+const HINT_UNLOCK_RATIO  = 0.45;
 const LS_PLAYERS         = "wiz_players_v2";
 const LS_OVERRIDE        = "wiz_time_override";
 
@@ -438,6 +441,12 @@ export default function WhoIsWho({ onBack }) {
   // ── PLAY VIEW ─────────────────────────────────────────
   const scoreEntries = Object.entries(scores).sort(([, a], [, b]) => b - a);
 
+  // Hint-unlock banner: fires once ~45% of the turn time remains,
+  // scaling with effectiveTurnSeconds (auto or override).
+  const hintUnlockThreshold = Math.round(effectiveTurnSeconds * HINT_UNLOCK_RATIO);
+  const hintUnlocked = phase === "play" && !paused && !gameOver
+    && timeLeft > 0 && timeLeft <= hintUnlockThreshold;
+
   return (
     <>
       {gameOver && (
@@ -533,6 +542,25 @@ export default function WhoIsWho({ onBack }) {
                   </div>
                 )}
                 {toast && <div className="whoToast">{toast}</div>}
+                {hintUnlocked && (
+                  <div
+                    aria-live="polite"
+                    style={{
+                      position: "absolute", top: 18, left: "50%",
+                      transform: "translateX(-50%)",
+                      background: "linear-gradient(135deg,#F59E0B,#F97316)",
+                      color: "#1a1300",
+                      padding: "12px 22px", borderRadius: 999,
+                      fontWeight: 900, fontSize: "clamp(18px,3.6vw,28px)",
+                      letterSpacing: "0.01em", whiteSpace: "nowrap",
+                      border: "2px solid rgba(255,255,255,0.4)",
+                      animation: "wizHintPulse 1.4s ease-in-out infinite",
+                      zIndex: 5, pointerEvents: "none",
+                    }}
+                  >
+                    💡 A mesa pode dar dicas agora!
+                  </div>
+                )}
               </div>
             </div>
           </div>

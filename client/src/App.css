@@ -875,6 +875,10 @@ body {
   0%   { opacity: 1; transform: translate(-50%, -60%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -120%) scale(1.3); }
 }
+@keyframes wizHintPulse {
+  0%, 100% { transform: translateX(-50%) scale(1);    box-shadow: 0 4px 24px rgba(245,158,11,0.55); }
+  50%      { transform: translateX(-50%) scale(1.04); box-shadow: 0 6px 32px rgba(245,158,11,0.85); }
+}
 
 /* Online: sem rotação, imagem preenche o stage */
 .whoImgWrapOnline {

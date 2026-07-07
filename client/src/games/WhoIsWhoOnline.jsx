@@ -18,6 +18,10 @@ const RULES = [
   "Quem acertar mais, ganha.",
 ];
 
+// Ratio of turn time remaining when the "table can hint now" prompt unlocks.
+// 0.45 → 90s turn shows it at ~40s left; 60s → ~27s; 40s → ~18s.
+const HINT_UNLOCK_RATIO = 0.45;
+
 export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me = room?.players?.find((p) => p.id === socket.id) || null;
   const isHost = !!me?.isHost;
@@ -92,6 +96,12 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
   const isLobby = phase === "lobby";
   const isFinished = phase === "finished";
   const isPlaying = phase === "playing";
+
+  // Hint-unlock banner: fires once ~45% of the turn time remains,
+  // scaling with turnSeconds (auto or override from server state).
+  const hintUnlockThreshold = Math.round((turnSeconds || 0) * HINT_UNLOCK_RATIO);
+  const hintUnlocked = isPlaying && turnPhase === "play" && !paused && !isFinished
+    && remaining > 0 && remaining <= hintUnlockThreshold;
 
   return (
     <div className="appBg">
@@ -280,6 +290,25 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                 {floatMsg && (
                   <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-60%)", fontSize: 32, fontWeight: 950, pointerEvents: "none", zIndex: 10, animation: "floatUp .9s ease forwards" }}>
                     {floatMsg}
+                  </div>
+                )}
+                {hintUnlocked && (
+                  <div
+                    aria-live="polite"
+                    style={{
+                      position: "absolute", top: 12, left: "50%",
+                      transform: "translateX(-50%)",
+                      background: "linear-gradient(135deg,#F59E0B,#F97316)",
+                      color: "#1a1300",
+                      padding: "10px 18px", borderRadius: 999,
+                      fontWeight: 900, fontSize: "clamp(14px,3vw,20px)",
+                      whiteSpace: "nowrap",
+                      border: "2px solid rgba(255,255,255,0.4)",
+                      animation: "wizHintPulse 1.4s ease-in-out infinite",
+                      zIndex: 5, pointerEvents: "none",
+                    }}
+                  >
+                    💡 A mesa pode dar dicas agora!
                   </div>
                 )}
                 <div className="whoStageInner" style={{ transform: "none" }}>
