@@ -362,11 +362,15 @@ export class SporcleMZEngine extends BaseEngine {
         }
       }
     } else {
+      // Proportional payout: points = wager * (correct / required).
+      // Full completion = full wager; partial pays proportionally; 0 correct = 0.
       for (const [id, acertadas] of this.playerAnswers) {
         const wager = this.wagerThis.get(id) ?? 1;
         const total = q.total ?? q.respostas_aceites.length;
-        const correct = total > 0 && acertadas.size / total >= 0.5;
-        this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
+        const payout = total > 0
+          ? Math.round(wager * (acertadas.size / total))
+          : 0;
+        this.scores.set(id, (this.scores.get(id) || 0) + payout);
         if (!this.isFinalRound) {
           const used = this.wagersUsed.get(id) || [];
           this.wagersUsed.set(id, [...used, wager]);
