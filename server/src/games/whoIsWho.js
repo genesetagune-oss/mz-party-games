@@ -202,6 +202,21 @@ export class WhoIsWhoEngine extends BaseEngine {
     this.state.pausedRemainingMs = 0;
     this.emitEvent({ type: "TURN_ENDED", reason, by: this.state.currentPlayerId });
 
+    // Verifica vitória APENAS no fim do turno (não durante o jogo)
+    const endedPlayerId = this.state.currentPlayerId;
+    const endedScore = this.state.scores[endedPlayerId] || 0;
+    if (endedScore >= WIN_SCORE) {
+      const pl = this.room.players.get(endedPlayerId);
+      this.state.winner = { id: endedPlayerId, name: pl?.name || "?", score: endedScore };
+      this.state.phase = "finished";
+      this.state.turnPhase = "ready";
+      this.state.endsAt = null;
+      this.state.item = null;
+      this.emitEvent({ type: "GAME_FINISHED", winner: this.state.winner });
+      this.emitState();
+      return;
+    }
+
     const order = this.state.playerOrder;
     this.state.currentIndex = (this.state.currentIndex + 1) % order.length;
 
@@ -266,15 +281,6 @@ export class WhoIsWhoEngine extends BaseEngine {
       this.state.scores[playerId] = (this.state.scores[playerId] || 0) + 1;
       const score = this.state.scores[playerId];
       this.emitEvent({ type: "YES", by: socketId, score });
-      if (score >= WIN_SCORE) {
-        const pl = this.room.players.get(playerId);
-        this.state.winner = { id: playerId, name: pl?.name || "?", score };
-        this.state.phase = "finished"; this.state.turnPhase = "ready";
-        this.state.endsAt = null; this.state.paused = false;
-        this.clearTimers();
-        this.emitEvent({ type: "GAME_FINISHED", winner: this.state.winner });
-        this.emitState(); return;
-      }
       this.nextItem(); this.emitState(); return;
     }
 
