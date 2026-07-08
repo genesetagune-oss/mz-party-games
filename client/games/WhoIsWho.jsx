@@ -97,6 +97,15 @@ export default function WhoIsWho({ onBack }) {
   const [scores, setScores] = useState({});
   const [currentPlayerIdx, setCurrentPlayerIdx] = useState(0);
 
+  // Timestamp when the current phase's timer ends. Used instead of a naive
+  // decrement so a lock/tab-switch/call doesn't lose seconds (setInterval is
+  // throttled or paused in the background — endsAt is not).
+  const endsAtRef = useRef(0);
+  // When paused, we freeze the remaining ms and rebuild endsAt on resume.
+  const pausedMsRef = useRef(0);
+  // Guard for the one-shot restore + save cycle.
+  const restoredRef = useRef(false);
+
   // ── HELPERS ────────────────────────────────────────────
   const effectiveTurnSeconds = useMemo(() => {
     if (timeOverride) return timeOverride;
@@ -164,6 +173,7 @@ export default function WhoIsWho({ onBack }) {
     if (view === "play") {
       setGameOver(false); setWinner(null); setPaused(false);
       setToast(""); setLastAction("neutral"); setCurrentCard(null);
+      try { localStorage.removeItem(LS_GAME_STATE); } catch {}
       setView("setup"); return;
     }
     onBack();
@@ -183,6 +193,8 @@ export default function WhoIsWho({ onBack }) {
     canTriggerRef.current = true;
     setLastAction("neutral");
     setToast("");
+    endsAtRef.current = Date.now() + SWITCH_SECONDS * 1000;
+    pausedMsRef.current = 0;
   }
 
   function startCountdownPhase() {
@@ -190,6 +202,13 @@ export default function WhoIsWho({ onBack }) {
     setPhase("countdown");
     setCountdownLeft(COUNTDOWN_SECONDS);
     setTimeLeft(secs);
+    endsAtRef.current = Date.now() + COUNTDOWN_SECONDS * 1000;
+    pausedMsRef.current = 0;
+  }
+
+  function beginPlayTimer(secs) {
+    endsAtRef.current = Date.now() + secs * 1000;
+    pausedMsRef.current = 0;
   }
 
   function advancePlayer() {
@@ -235,38 +254,141 @@ export default function WhoIsWho({ onBack }) {
   }
 
   // ── TIMERS ────────────────────────────────────────────
+  // All three phases compute remaining from endsAtRef, so a backgrounded
+  // tab (throttled setInterval) still shows the correct time when it
+  // returns to the foreground — the timer catches up instead of drifting.
   useEffect(() => {
     if (view !== "play" || phase !== "switch" || paused || gameOver) return;
-    const id = setInterval(() => setSwitchLeft(s => {
-      if (s <= 1) { clearInterval(id); startCountdownPhase(); return SWITCH_SECONDS; }
-      return s - 1;
-    }), 1000);
+    const tick = () => {
+      const rem = Math.max(0, Math.ceil((endsAtRef.current - Date.now()) / 1000));
+      setSwitchLeft(rem);
+      if (rem <= 0) { clearInterval(id); startCountdownPhase(); }
+    };
+    const id = setInterval(tick, 250);
+    tick();
     return () => clearInterval(id);
   }, [view, phase, paused, gameOver]);
 
   useEffect(() => {
     if (view !== "play" || phase !== "countdown" || paused || gameOver) return;
-    const id = setInterval(() => setCountdownLeft(c => {
-      if (c <= 1) { clearInterval(id); setPhase("play"); showCurrentItem(); return COUNTDOWN_SECONDS; }
-      return c - 1;
-    }), 1000);
+    const tick = () => {
+      const rem = Math.max(0, Math.ceil((endsAtRef.current - Date.now()) / 1000));
+      setCountdownLeft(rem);
+      if (rem <= 0) {
+        clearInterval(id);
+        setPhase("play");
+        showCurrentItem();
+        const secs = timeOverride || autoTurnSeconds(playerListRef.current.length);
+        setTimeLeft(secs);
+        beginPlayTimer(secs);
+      }
+    };
+    const id = setInterval(tick, 250);
+    tick();
     return () => clearInterval(id);
   }, [view, phase, paused, gameOver]);
 
   useEffect(() => {
     if (view !== "play" || phase !== "play" || paused || gameOver) return;
-    const id = setInterval(() => setTimeLeft(t => {
-      if (t <= 1) {
+    const tick = () => {
+      const rem = Math.max(0, Math.ceil((endsAtRef.current - Date.now()) / 1000));
+      setTimeLeft(rem);
+      if (rem <= 0) {
         clearInterval(id);
         advanceItem();
         advancePlayer();
         setTimeout(() => startSwitchPhase(), 200);
-        return 0;
       }
-      return t - 1;
-    }), 1000);
+    };
+    const id = setInterval(tick, 250);
+    tick();
     return () => clearInterval(id);
   }, [view, phase, paused, gameOver]);
+
+  // Pause/resume: freeze remaining ms on pause, rebuild endsAt on resume.
+  useEffect(() => {
+    if (view !== "play") return;
+    if (paused) {
+      pausedMsRef.current = Math.max(0, endsAtRef.current - Date.now());
+    } else if (pausedMsRef.current > 0) {
+      endsAtRef.current = Date.now() + pausedMsRef.current;
+      pausedMsRef.current = 0;
+    }
+  }, [paused, view]);
+
+  // Foreground recovery: when the tab becomes visible again after a call,
+  // lock-screen or tab-switch, force the timer to catch up to real time.
+  useEffect(() => {
+    if (view !== "play") return;
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      if (paused || gameOver) return;
+      const rem = Math.max(0, Math.ceil((endsAtRef.current - Date.now()) / 1000));
+      if (phase === "switch") setSwitchLeft(rem);
+      else if (phase === "countdown") setCountdownLeft(rem);
+      else if (phase === "play") setTimeLeft(rem);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [view, phase, paused, gameOver]);
+
+  // ── PERSISTENCE ────────────────────────────────────────
+  // On mount, restore an in-progress game so a refresh / accidental back
+  // doesn't wipe the round. Only runs once; must sit before the save
+  // effect so we don't overwrite the snapshot with defaults.
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const s = safeParseJSON(localStorage.getItem(LS_GAME_STATE), null);
+    if (!s || !s.savedAt || Date.now() - s.savedAt > GAME_STATE_TTL_MS) {
+      localStorage.removeItem(LS_GAME_STATE);
+      return;
+    }
+    if (s.view !== "play" || !Array.isArray(s.playerList) || s.playerList.length < 2) return;
+    // Rebuild the deck for the saved category (deck itself isn't persisted).
+    const deck = getDeckForCategory(s.categoryId || "mix", { soNomes: false });
+    deckRef.current = deck;
+    deckIndexRef.current = Math.min(s.deckIndex ?? 0, Math.max(0, deck.length - 1));
+    playerListRef.current = s.playerList;
+    playerIndexRef.current = s.playerIndex ?? 0;
+    scoresRef.current = s.scores || {};
+    setCategoryId(s.categoryId || "mix");
+    setScores(scoresRef.current);
+    setCurrentPlayerIdx(playerIndexRef.current);
+    setPhase(s.phase || "switch");
+    setGameOver(!!s.gameOver);
+    setWinner(s.winner ?? null);
+    setPaused(!!s.paused);
+    setHasSensorPermission(true);
+    // Timer: rebuild endsAt from the (possibly paused) remaining ms.
+    if (s.paused) {
+      pausedMsRef.current = Math.max(0, s.pausedMs || 0);
+      endsAtRef.current = Date.now() + pausedMsRef.current;
+    } else {
+      endsAtRef.current = s.endsAt || Date.now();
+    }
+    if (!s.gameOver) setCurrentCard(deck[deckIndexRef.current] || null);
+    setView("play");
+  }, []);
+
+  // Snapshot the in-progress game whenever anything meaningful changes.
+  useEffect(() => {
+    if (view !== "play") { localStorage.removeItem(LS_GAME_STATE); return; }
+    try {
+      const snapshot = {
+        savedAt: Date.now(),
+        view, phase, categoryId,
+        playerList: playerListRef.current,
+        playerIndex: playerIndexRef.current,
+        scores: scoresRef.current,
+        deckIndex: deckIndexRef.current,
+        gameOver, winner, paused,
+        endsAt: endsAtRef.current,
+        pausedMs: pausedMsRef.current,
+      };
+      localStorage.setItem(LS_GAME_STATE, JSON.stringify(snapshot));
+    } catch {}
+  }, [view, phase, categoryId, currentPlayerIdx, scores, gameOver, winner, paused, timeLeft, switchLeft, countdownLeft]);
 
   // ── TILT SENSOR ───────────────────────────────────────
   useEffect(() => {
