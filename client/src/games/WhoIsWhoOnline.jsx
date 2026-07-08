@@ -48,7 +48,6 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
   const item = gamePrivate?.item ?? null;
 
   const [floatMsg, setFloatMsg] = useState(null);
-  const [showCatPicker, setShowCatPicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [shareFeedback, setShareFeedback] = useState("");
@@ -74,7 +73,7 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
 
   const leaveToMenu  = () => { socket.emit("room:leave"); onBack?.(); };
   const startGame    = () => { warmupAudio(); socket.emit("game:start"); };
-  const setCat       = (cat) => { socket.emit("game:setCategory", { category: cat }); setShowCatPicker(false); };
+  const setCat       = (cat) => { socket.emit("game:setCategory", { category: cat }); };
   const setOverride  = (v) => socket.emit("game:setSettings", { turnSecondsOverride: v });
   const yes          = () => { warmupAudio(); showFloat("✅ +1"); socket.emit("game:command", { type: "YES" }); };
   const pass         = () => { warmupAudio(); socket.emit("game:command", { type: "PASS" }); };
@@ -217,43 +216,120 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                 </div>
               </div>
 
-              {/* Host controls / guest waiting */}
+              {/* Category — HOST picks (always visible), guests see a big card */}
               {isHost ? (
-                <>
+                <div>
+                  <div style={{
+                    display: "flex", alignItems: "baseline", justifyContent: "space-between",
+                    marginBottom: 10, paddingLeft: 2,
+                  }}>
+                    <div style={{
+                      fontSize: 11, fontWeight: 900, letterSpacing: "0.14em",
+                      textTransform: "uppercase", color: "rgba(234,236,244,0.55)",
+                    }}>
+                      🎭 Categoria
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.45, fontWeight: 700 }}>
+                      Toca para escolher
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {CATEGORIAS.map((c) => {
+                      const sel = category === c.id;
+                      return (
+                        <button key={c.id} type="button" onClick={() => setCat(c.id)}
+                          aria-pressed={sel}
+                          style={{
+                            position: "relative",
+                            border: sel ? "2.5px solid #fff" : "2.5px solid transparent",
+                            borderRadius: 16, padding: "14px 8px 12px",
+                            display: "flex", flexDirection: "column", alignItems: "center",
+                            justifyContent: "center", gap: 5, cursor: "pointer",
+                            background: c.bg,
+                            boxShadow: sel
+                              ? `0 0 0 3px rgba(255,255,255,0.25), 0 6px 20px ${c.shadow}`
+                              : `0 4px 12px ${c.shadow}`,
+                            minHeight: 92, WebkitTapHighlightColor: "transparent",
+                            transform: sel ? "scale(1.02)" : "scale(1)",
+                            transition: "transform 160ms ease, box-shadow 160ms ease",
+                          }}>
+                          {sel && (
+                            <span style={{
+                              position: "absolute", top: 6, right: 8,
+                              fontSize: 11, fontWeight: 900,
+                              color: "#fff", opacity: 0.95,
+                            }}>✓</span>
+                          )}
+                          <div style={{ fontSize: 28, lineHeight: 1 }}>{c.emoji}</div>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", textAlign: "center", letterSpacing: 0.1 }}>
+                            {c.nome}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <button type="button" className="btnPrimary"
-                    disabled={playerCount < 2} onClick={startGame}>
+                    disabled={playerCount < 2} onClick={startGame}
+                    style={{ marginTop: 14 }}>
                     {playerCount < 2 ? `Aguarda mais ${2 - playerCount} jogador…` : "▶ Começar"}
                   </button>
-
-                  <button type="button" onClick={() => setShowCatPicker(v => !v)}
-                    style={{ background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "8px 14px", color: "rgba(234,236,244,0.65)", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>
-                    {showCatPicker ? "▲ Fechar" : `🎭 Categoria: ${catLabel} — alterar`}
-                  </button>
-
-                  {showCatPicker && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      {CATEGORIAS.map((c) => (
-                        <button key={c.id} type="button" onClick={() => setCat(c.id)}
-                          style={{
-                            border: category === c.id ? "2.5px solid rgba(255,255,255,0.9)" : "2.5px solid transparent",
-                            borderRadius: 16, padding: "12px 8px 10px",
-                            display: "flex", flexDirection: "column", alignItems: "center",
-                            justifyContent: "center", gap: 4, cursor: "pointer",
-                            background: c.bg, boxShadow: category === c.id ? `0 0 0 3px rgba(255,255,255,0.2), 0 4px 16px ${c.shadow}` : `0 4px 12px ${c.shadow}`,
-                            minHeight: 88, WebkitTapHighlightColor: "transparent",
-                          }}>
-                          <div style={{ fontSize: 26 }}>{c.emoji}</div>
-                          <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", textAlign: "center" }}>{c.nome}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
+                </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "16px 0" }}>
-                  <div style={{ fontWeight: 800, fontSize: 15, opacity: .75, textAlign: "center" }}>Aguardando o host iniciar…</div>
-                  <div style={{ padding: "8px 16px", borderRadius: 999, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.75)" }}>
-                    Categoria: <b style={{ color: "#fff" }}>{catLabel}</b>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "6px 0 12px" }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 900, letterSpacing: "0.14em",
+                    textTransform: "uppercase", color: "rgba(234,236,244,0.55)",
+                    paddingLeft: 2,
+                  }}>
+                    🎭 Categoria escolhida pelo host
+                  </div>
+                  {(() => {
+                    const c = CATEGORIAS.find(x => x.id === category) || CATEGORIAS[0];
+                    return (
+                      <div style={{
+                        background: c.bg,
+                        border: "2px solid rgba(255,255,255,0.25)",
+                        borderRadius: 20, padding: "18px 22px",
+                        boxShadow: `0 8px 28px ${c.shadow}`,
+                        display: "flex", alignItems: "center", gap: 16,
+                      }}>
+                        <div style={{
+                          fontSize: 48, lineHeight: 1, flexShrink: 0,
+                          filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.25))",
+                        }}>
+                          {c.emoji}
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            fontSize: 11, fontWeight: 800, letterSpacing: 1.6,
+                            textTransform: "uppercase", color: "rgba(255,255,255,0.75)",
+                            marginBottom: 4,
+                          }}>
+                            A jogar
+                          </div>
+                          <div style={{
+                            fontSize: 26, fontWeight: 950, color: "#fff",
+                            letterSpacing: -0.2, lineHeight: 1.1,
+                            textShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                          }}>
+                            {c.nome}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    gap: 8, padding: "10px 14px",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 12,
+                  }}>
+                    <div className="waitingHostDot" style={{ width: 10, height: 10 }} />
+                    <span style={{ fontWeight: 800, fontSize: 14, color: "rgba(234,236,244,0.75)" }}>
+                      Aguardando o host iniciar…
+                    </span>
                   </div>
                 </div>
               )}
