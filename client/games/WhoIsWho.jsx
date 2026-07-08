@@ -12,6 +12,10 @@ const TURN_OPTIONS       = [null, 30, 45, 60, 75, 90, 120];
 const HINT_UNLOCK_RATIO  = 0.45;
 const LS_PLAYERS         = "wiz_players_v2";
 const LS_OVERRIDE        = "wiz_time_override";
+// Snapshot of an in-progress offline game so a call / lock / tab switch
+// (or an accidental refresh) can pick up where it left off instead of resetting.
+const LS_GAME_STATE      = "wiz_game_state_v1";
+const GAME_STATE_TTL_MS  = 6 * 60 * 60 * 1000; // 6h — anything older is stale
 
 function autoTurnSeconds(n) {
   if (n <= 2) return 90;
@@ -45,7 +49,7 @@ function safeParseJSON(s, fb) { try { return JSON.parse(s) ?? fb; } catch { retu
 const RULES_TEXT = [
   "Um jogador coloca o telemóvel na testa com o ecrã virado para fora.",
   "Os outros jogadores dão dicas sem dizer a palavra.",
-  "Acertou? Inclina o telemóvel para BAIXO (✅). Passa? Inclina para CIMA (❌).",
+  "Acertou? Inclina o telemóvel para BAIXO (✅). Passar? Inclina para CIMA (❌).",
   "Cada acerto vale 1 ponto. Passa para o próximo quando o tempo acabar.",
   "Primeiro jogador a chegar a 10 pontos vence! 🏆",
 ];
@@ -290,15 +294,15 @@ export default function WhoIsWho({ onBack }) {
       const now = Date.now();
       if (now - lastAt < COOLDOWN || !canTriggerRef.current) return;
       if (delta >= TRIGGER) {
-        // tilt down = PASS
-        canTriggerRef.current = false; lastAt = now;
-        setLastAction("down"); setToast("❌"); advanceItem();
-      } else if (delta <= -TRIGGER) {
-        // tilt up = CORRECT
+        // Tilt DOWN (chin toward chest) = CORRECT — classic Heads Up convention.
         canTriggerRef.current = false; lastAt = now;
         setLastAction("up");
         const won = addPointAndMaybeWin();
         if (!won) { setToast("✅ +1"); advanceItem(); }
+      } else if (delta <= -TRIGGER) {
+        // Tilt UP (chin away) = PASS.
+        canTriggerRef.current = false; lastAt = now;
+        setLastAction("down"); setToast("❌"); advanceItem();
       }
     }
 
@@ -537,30 +541,31 @@ export default function WhoIsWho({ onBack }) {
                     </div>
                   </>
                 ) : (
-                  <div className="whoCardText" style={{ fontSize: getWhoFontClamp(currentCard?.nome ?? "") }}>
-                    {currentCard?.nome ?? ""}
-                  </div>
+                  <>
+                    {hintUnlocked && (
+                      <div
+                        aria-live="polite"
+                        style={{
+                          background: "linear-gradient(135deg,#F59E0B,#F97316)",
+                          color: "#1a1300",
+                          padding: "10px 20px", borderRadius: 999,
+                          fontWeight: 900, fontSize: "clamp(16px,3.4vw,24px)",
+                          letterSpacing: "0.01em",
+                          border: "2px solid rgba(255,255,255,0.4)",
+                          animation: "wizHintPulse 1.4s ease-in-out infinite",
+                          pointerEvents: "none", maxWidth: "min(80vw,500px)",
+                          textAlign: "center",
+                        }}
+                      >
+                        💡 A mesa pode dar dicas agora!
+                      </div>
+                    )}
+                    <div className="whoCardText" style={{ fontSize: getWhoFontClamp(currentCard?.nome ?? "") }}>
+                      {currentCard?.nome ?? ""}
+                    </div>
+                  </>
                 )}
                 {toast && <div className="whoToast">{toast}</div>}
-                {hintUnlocked && (
-                  <div
-                    aria-live="polite"
-                    style={{
-                      position: "absolute", top: 18, left: "50%",
-                      transform: "translateX(-50%)",
-                      background: "linear-gradient(135deg,#F59E0B,#F97316)",
-                      color: "#1a1300",
-                      padding: "12px 22px", borderRadius: 999,
-                      fontWeight: 900, fontSize: "clamp(18px,3.6vw,28px)",
-                      letterSpacing: "0.01em", whiteSpace: "nowrap",
-                      border: "2px solid rgba(255,255,255,0.4)",
-                      animation: "wizHintPulse 1.4s ease-in-out infinite",
-                      zIndex: 5, pointerEvents: "none",
-                    }}
-                  >
-                    💡 A mesa pode dar dicas agora!
-                  </div>
-                )}
               </div>
             </div>
           </div>

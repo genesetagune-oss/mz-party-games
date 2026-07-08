@@ -68,13 +68,14 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
 });
 
   // ---------- CREATE ROOM ----------
-  socket.on("room:create", ({ gameType, name, team }) => {
+  socket.on("room:create", ({ gameType, name, team, clientId }) => {
     try {
       const room = roomManager.createRoom({
         gameType,
         hostSocketId: socket.id,
         hostName: name,
         hostTeam: team,
+        hostClientId: clientId,
       });
 
       room.engine = createEngine(room.gameType, {
@@ -99,7 +100,7 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
   });
 
   // ---------- JOIN ROOM ----------
-  socket.on("room:join", ({ roomCode, name, team }) => {
+  socket.on("room:join", ({ roomCode, name, team, clientId }) => {
     const room = roomManager.getRoom(roomCode);
     if (!room) {
       socket.emit("room:error", { code: "ROOM_NOT_FOUND" });
@@ -111,6 +112,7 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
       socketId: socket.id,
       name,
       team,
+      clientId,
     });
 
     if (!result.ok) {
@@ -122,12 +124,57 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     socketRoom.set(socket.id, roomCode);
 
     const player = result.room.players.get(socket.id);
-    result.room.engine?.onPlayerJoin?.(player);
+    if (!result.resumed) result.room.engine?.onPlayerJoin?.(player);
     result.room.engine?.emitState?.();
 
     io.to(roomCode).emit("room:update", {
       roomCode,
       room: roomManager.publicRoomState(result.room),
+    });
+
+    if (result.resumed) {
+      socket.emit("room:resumed", {
+        roomCode,
+        room: roomManager.publicRoomState(result.room),
+      });
+    }
+  });
+
+  // ---------- RESUME (auto-reconnect after disconnect) ----------
+  socket.on("room:resume", ({ roomCode, clientId }) => {
+    if (!roomCode || !clientId) {
+      socket.emit("room:error", { code: "RESUME_INVALID" });
+      return;
+    }
+    const room = roomManager.getRoom(roomCode);
+    if (!room) {
+      socket.emit("room:error", { code: "ROOM_NOT_FOUND" });
+      return;
+    }
+    // Find the disconnected player by clientId and re-attach this new socket.
+    let matched = null;
+    for (const p of room.players.values()) {
+      if (p.clientId === clientId) { matched = p; break; }
+    }
+    if (!matched) {
+      socket.emit("room:error", { code: "RESUME_NOT_FOUND" });
+      return;
+    }
+    const oldId = matched.id;
+    roomManager._remapSocketId(room, oldId, socket.id);
+    matched.connected = true;
+    matched.disconnectedAt = null;
+    socket.join(roomCode);
+    socketRoom.set(socket.id, roomCode);
+
+    room.engine?.emitState?.();
+    io.to(roomCode).emit("room:update", {
+      roomCode,
+      room: roomManager.publicRoomState(room),
+    });
+    socket.emit("room:resumed", {
+      roomCode,
+      room: roomManager.publicRoomState(room),
     });
   });
 
@@ -214,28 +261,22 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
   });
 
   // ---------- DISCONNECT ----------
+  // Graceful: keep the player in the room for GRACE_MS so a phone call, screen
+  // lock or tab switch does NOT reset the game. If they don't reconnect within
+  // the grace window, cleanupExpiredRooms will actually remove them.
   socket.on("disconnect", () => {
     const ctx = getRoomBySocket(socket.id);
     console.log("❌ desconectou:", socket.id);
-
     if (!ctx) return;
 
     const { code, room } = ctx;
-    const player = room.players.get(socket.id);
-
-    roomManager.leaveRoom({ code, socketId: socket.id });
+    roomManager.markDisconnected({ code, socketId: socket.id });
     socketRoom.delete(socket.id);
 
-    room.engine?.onPlayerLeave?.(player);
-
-    const updated = roomManager.getRoom(code);
-    if (updated) {
-      io.to(code).emit("room:update", {
-        roomCode: code,
-        room: roomManager.publicRoomState(updated),
-      });
-      updated.engine?.emitState?.();
-    }
+    io.to(code).emit("room:update", {
+      roomCode: code,
+      room: roomManager.publicRoomState(room),
+    });
   });
 });
 

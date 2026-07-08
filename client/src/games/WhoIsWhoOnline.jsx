@@ -298,6 +298,10 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                     style={{
                       position: "absolute", top: 12, left: "50%",
                       transform: "translateX(-50%)",
+                      zIndex: 5, pointerEvents: "none",
+                    }}
+                  >
+                    <div style={{
                       background: "linear-gradient(135deg,#F59E0B,#F97316)",
                       color: "#1a1300",
                       padding: "10px 18px", borderRadius: 999,
@@ -305,10 +309,9 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                       whiteSpace: "nowrap",
                       border: "2px solid rgba(255,255,255,0.4)",
                       animation: "wizHintPulse 1.4s ease-in-out infinite",
-                      zIndex: 5, pointerEvents: "none",
-                    }}
-                  >
-                    💡 A mesa pode dar dicas agora!
+                    }}>
+                      💡 A mesa pode dar dicas agora!
+                    </div>
                   </div>
                 )}
                 <div className="whoStageInner" style={{ transform: "none" }}>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORIAS as CATEGORIAS_WHO } from "../games/quemSouEuDB.js";
-import { socket } from "./socket";
+import { socket, clientId } from "./socket";
 import { playSound, setMuted, isMuted } from "./utils/sound";
 import { track, trackAppOpened } from "./analytics";
 
@@ -618,7 +618,7 @@ export default function App() {
           // Returning user: join directly
           if (gt !== "thirtySeconds") {
             setLoading("A entrar na sala…");
-            socket.emit("room:join", { roomCode: deepCode, name: savedName || "Player", team: "A" });
+            socket.emit("room:join", { roomCode: deepCode, name: savedName || "Player", team: "A", clientId });
             return;
           }
           setPendingJoinCode(deepCode); setOverlayMode("JOIN"); setShowTeamOverlay(true);
@@ -637,7 +637,7 @@ export default function App() {
         if (res?.ok) {
           const n = (localStorage.getItem(LS_NAME) || "Player").trim();
           const t = localStorage.getItem(LS_ROOM_TEAM) || "A";
-          socket.emit("room:join", { roomCode: savedCode, name: n, team: t });
+          socket.emit("room:join", { roomCode: savedCode, name: n, team: t, clientId });
         } else {
           localStorage.removeItem(LS_ROOM_CODE);
           localStorage.removeItem(LS_ROOM_GAME);
@@ -660,10 +660,23 @@ export default function App() {
   const closeNotice = () => { if (dontShowAgain) localStorage.setItem(LS_HIDE_ALERTS,"1"); setNotice(null); };
 
   useEffect(() => {
-    const onConnect    = () => setConnected(true);
+    const onConnect = () => {
+      setConnected(true);
+      // Auto-resume: after a mid-game disconnect (phone call, tab switch,
+      // network drop), socket.io reconnects transparently. Ask the server
+      // to reattach us to any room we still remember via clientId.
+      const savedCode = localStorage.getItem(LS_ROOM_CODE);
+      if (savedCode && !rejoinRef.current) return; // initial mount handles it
+      if (savedCode) socket.emit("room:resume", { roomCode: savedCode, clientId });
+    };
     const onDisconnect = () => setConnected(false);
     socket.on("connect",    onConnect);
     socket.on("disconnect", onDisconnect);
+    socket.on("room:resumed", ({ room, roomCode: rc }) => {
+      setRoom(room); if (rc) setRoomCode(rc); setLoading(null);
+      const me = room?.players?.find(p => p.id === socket.id);
+      if (me?.team) localStorage.setItem(LS_ROOM_TEAM, me.team);
+    });
     socket.on("room:created", ({ roomCode, room }) => {
       setLoading(null); setRoomCode(roomCode); setRoom(room);
       setGamePublic(null); setGamePrivate(null); setInLobby(true);
@@ -713,6 +726,7 @@ export default function App() {
     return () => {
       socket.off("connect",onConnect); socket.off("disconnect",onDisconnect);
       socket.off("room:created"); socket.off("room:update"); socket.off("room:error");
+      socket.off("room:resumed");
       socket.off("game:state"); socket.off("game:error"); socket.off("room:gameChanged");
     };
   }, [showNotice]);
@@ -746,19 +760,19 @@ export default function App() {
 
   const create30sRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("thirtySeconds", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:name.trim()||"Player",team:"A"}); });
+    showRulesFor("thirtySeconds", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:name.trim()||"Player",team:"A",clientId}); });
   };
   const createWhoIsWhoRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("whoIsWho", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"whoIsWho",name:name.trim()||"Player",team:"A"}); });
+    showRulesFor("whoIsWho", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"whoIsWho",name:name.trim()||"Player",team:"A",clientId}); });
   };
   const createSabeTudoRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("sabeTudo", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"sabeTudo",name:name.trim()||"Player",team:"A"}); });
+    showRulesFor("sabeTudo", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"sabeTudo",name:name.trim()||"Player",team:"A",clientId}); });
   };
   const createSporcleMZRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
-    showRulesFor("sporcleMZ", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"sporcleMZ",name:name.trim()||"Player",team:"A"}); });
+    showRulesFor("sporcleMZ", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"sporcleMZ",name:name.trim()||"Player",team:"A",clientId}); });
   };
 
   const joinRoom = () => {
@@ -773,7 +787,7 @@ export default function App() {
       showRulesFor(gt, () => {
         if (gt !== "thirtySeconds") {
           localStorage.setItem(LS_NAME_OK, "1");
-          socket.emit("room:join",{roomCode:code,name:playerName,team:"A"});
+          socket.emit("room:join",{roomCode:code,name:playerName,team:"A",clientId});
           return;
         }
         setPendingJoinCode(code); setOverlayMode("JOIN"); setShowTeamOverlay(true);
@@ -788,8 +802,8 @@ export default function App() {
     const playerName = (draftName || name).trim() || "Player";
     setName(playerName);
     localStorage.setItem(LS_NAME_OK, "1");
-    if (overlayMode === "CREATE") { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:playerName,team}); }
-    if (overlayMode === "JOIN")   { setLoading("A entrar na sala…"); socket.emit("room:join",{roomCode:pendingJoinCode,name:playerName,team}); }
+    if (overlayMode === "CREATE") { setLoading("A criar sala…"); socket.emit("room:create",{gameType:"thirtySeconds",name:playerName,team,clientId}); }
+    if (overlayMode === "JOIN")   { setLoading("A entrar na sala…"); socket.emit("room:join",{roomCode:pendingJoinCode,name:playerName,team,clientId}); }
     setShowTeamOverlay(false); setPendingJoinCode("");
   };
 
@@ -802,7 +816,7 @@ export default function App() {
     setNameOverlayJoin(null);
     if (gt !== "thirtySeconds") {
       setLoading("A entrar na sala…");
-      socket.emit("room:join", { roomCode: code, name: playerName, team: "A" });
+      socket.emit("room:join", { roomCode: code, name: playerName, team: "A", clientId });
     } else {
       setPendingJoinCode(code); setOverlayMode("JOIN"); setShowTeamOverlay(true);
     }

@@ -140,6 +140,34 @@ export class SporcleMZEngine extends BaseEngine {
     this.answeredShortTeams  = new Set();
   }
 
+  // ── reconnect ─────────────────────────────────────────────
+  remapPlayerId(oldId, newId) {
+    if (oldId === newId) return;
+    const remapMap = (m) => {
+      if (!m || !m.has(oldId)) return;
+      m.set(newId, m.get(oldId));
+      m.delete(oldId);
+    };
+    const remapSet = (s) => {
+      if (!s || !s.has(oldId)) return;
+      s.add(newId);
+      s.delete(oldId);
+    };
+    remapMap(this.wagersUsed);
+    remapMap(this.wagerThis);
+    remapMap(this.finalVotes);
+    remapMap(this.scores);
+    remapMap(this.playerAnswers);
+    remapSet(this.answeredShort);
+    if (Array.isArray(this.answerOrder)) {
+      this.answerOrder = this.answerOrder.map((id) => (id === oldId ? newId : id));
+    }
+    if (this.wagerResults && Object.prototype.hasOwnProperty.call(this.wagerResults, oldId)) {
+      this.wagerResults[newId] = this.wagerResults[oldId];
+      delete this.wagerResults[oldId];
+    }
+  }
+
   // ── wager helpers ─────────────────────────────────────────
 
   _wagerKeys() {

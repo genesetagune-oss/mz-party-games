@@ -3,12 +3,16 @@ import { customAlphabet } from "nanoid";
 
 const nanoid = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 6);
 
+// How long a disconnected player is kept in the room before being removed.
+// Covers phone-calls, tab-switch, lock-screen — anything up to ~2 minutes.
+export const GRACE_MS = 120_000;
+
 export class RoomManager {
   constructor() {
     this.rooms = new Map(); // code -> room
   }
 
-  createRoom({ gameType, hostSocketId, hostName = "Host", hostTeam }) {
+  createRoom({ gameType, hostSocketId, hostName = "Host", hostTeam, hostClientId }) {
     const code = nanoid();
 
     const team = hostTeam === "A" || hostTeam === "B" ? hostTeam : "A";
@@ -40,10 +44,12 @@ export class RoomManager {
 
     room.players.set(hostSocketId, {
       id: hostSocketId,
+      clientId: hostClientId || hostSocketId,
       name: hostName,
       team,
       isHost: true,
       connected: true,
+      disconnectedAt: null,
     });
 
     this.rooms.set(code, room);
@@ -54,11 +60,26 @@ export class RoomManager {
     return this.rooms.get(code);
   }
 
-  joinRoom({ code, socketId, name = "Player", team }) {
+  joinRoom({ code, socketId, name = "Player", team, clientId }) {
     const room = this.rooms.get(code);
     if (!room) return { ok: false, error: "ROOM_NOT_FOUND" };
-    if (room.closed) return { ok: false, error: "ROOM_CLOSED" };
 
+    // Reconnect path: same clientId already in room (possibly disconnected).
+    // Restore the slot instead of rejecting.
+    if (clientId) {
+      for (const p of room.players.values()) {
+        if (p.clientId === clientId) {
+          if (p.id !== socketId) this._remapSocketId(room, p.id, socketId);
+          p.connected = true;
+          p.disconnectedAt = null;
+          if (name && name !== "Player") p.name = name;
+          room.updatedAt = Date.now();
+          return { ok: true, room, resumed: true };
+        }
+      }
+    }
+
+    if (room.closed) return { ok: false, error: "ROOM_CLOSED" };
     if (room.players.has(socketId)) return { ok: true, room };
 
     if (team !== "A" && team !== "B") {
@@ -76,10 +97,12 @@ export class RoomManager {
 
     room.players.set(socketId, {
       id: socketId,
+      clientId: clientId || socketId,
       name,
       team,
       isHost: false,
       connected: true,
+      disconnectedAt: null,
     });
 
     // fecha quando encher
@@ -89,6 +112,43 @@ export class RoomManager {
 
     room.updatedAt = Date.now();
     return { ok: true, room };
+  }
+
+  // Re-keys a player from oldId → newId and asks the engine to migrate any
+  // player-id references inside its state (scores, currentPlayerId, orders…).
+  _remapSocketId(room, oldId, newId) {
+    if (oldId === newId) return;
+    const player = room.players.get(oldId);
+    if (!player) return;
+    room.players.delete(oldId);
+    player.id = newId;
+    room.players.set(newId, player);
+    room.engine?.remapPlayerId?.(oldId, newId);
+  }
+
+  // Called on socket disconnect. Marks the player disconnected but keeps
+  // them (and their game state) around for GRACE_MS so a phone call or tab
+  // switch doesn't reset the game.
+  markDisconnected({ code, socketId }) {
+    const room = this.rooms.get(code);
+    if (!room) return null;
+    const player = room.players.get(socketId);
+    if (!player) return null;
+    player.connected = false;
+    player.disconnectedAt = Date.now();
+    room.updatedAt = Date.now();
+    return player;
+  }
+
+  // Find a player in any room by their persistent clientId.
+  findByClientId(clientId) {
+    if (!clientId) return null;
+    for (const [code, room] of this.rooms.entries()) {
+      for (const p of room.players.values()) {
+        if (p.clientId === clientId) return { code, room, player: p };
+      }
+    }
+    return null;
   }
 
   leaveRoom({ code, socketId }) {
@@ -110,7 +170,8 @@ export class RoomManager {
       if (first) first.isHost = true;
     }
 
-    if (room.players.size === 0) {
+    const allDisconnected = [...room.players.values()].every((p) => !p.connected);
+    if (room.players.size === 0 || allDisconnected) {
       room.emptySince = Date.now();
     }
   }
@@ -140,6 +201,16 @@ export class RoomManager {
   cleanupExpiredRooms() {
     const now = Date.now();
     for (const [code, room] of this.rooms.entries()) {
+      // Evict players whose grace window has expired.
+      const evict = [];
+      for (const [pid, p] of room.players.entries()) {
+        if (!p.connected && p.disconnectedAt && now - p.disconnectedAt > GRACE_MS) {
+          evict.push(pid);
+        }
+      }
+      for (const pid of evict) this.leaveRoom({ code, socketId: pid });
+
+      // Drop empty (or all-disconnected) rooms after their TTL.
       if (room.players.size === 0 && room.emptySince) {
         if (now - room.emptySince > room.config.emptyTtlMs) {
           room.engine?.destroy?.();

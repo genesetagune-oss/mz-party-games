@@ -65,4 +65,9 @@ export class BaseEngine {
 
   onPlayerJoin(player) {}
   onPlayerLeave(player) {}
+
+  // Called by RoomManager when a player reconnects and their socket.id changes.
+  // Each engine that stores state keyed by socket.id (scores, currentPlayerId,
+  // playerOrder, wagers, etc.) must override this to rewrite those references.
+  remapPlayerId(oldId, newId) {}
 }

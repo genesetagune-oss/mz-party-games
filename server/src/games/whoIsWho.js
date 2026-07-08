@@ -62,6 +62,19 @@ export class WhoIsWhoEngine extends BaseEngine {
     return this.room.players.get(this.state.currentPlayerId) || null;
   }
 
+  remapPlayerId(oldId, newId) {
+    if (oldId === newId) return;
+    if (this.state.scores && Object.prototype.hasOwnProperty.call(this.state.scores, oldId)) {
+      this.state.scores[newId] = this.state.scores[oldId];
+      delete this.state.scores[oldId];
+    }
+    if (this.state.currentPlayerId === oldId) this.state.currentPlayerId = newId;
+    if (Array.isArray(this.state.playerOrder)) {
+      this.state.playerOrder = this.state.playerOrder.map((id) => (id === oldId ? newId : id));
+    }
+    if (this.state.winner?.id === oldId) this.state.winner.id = newId;
+  }
+
   resetDeck(categoryId) {
     const cat = normalizeCategory(categoryId);
     this.state.category = cat;

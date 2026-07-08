@@ -465,6 +465,11 @@ export class ThirtySecondsEngine extends BaseEngine {
     if (!this.state.currentPlayerId) return null;
     return this.room.players.get(this.state.currentPlayerId) || null;
   }
+  remapPlayerId(oldId, newId) {
+    if (oldId === newId) return;
+    if (this.state.currentPlayerId === oldId) this.state.currentPlayerId = newId;
+    // scores are team-keyed (A/B), not per-player — nothing to rewrite there.
+  }
   otherTeam(team) {
     return team === "A" ? "B" : "A";
   }
