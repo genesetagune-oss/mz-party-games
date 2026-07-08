@@ -275,11 +275,13 @@ export class WhoIsWhoEngine extends BaseEngine {
   handleCommand(socketId, command) {
     const cur = this.currentPlayer();
     if (!cur) return;
-    if (socketId !== cur.id) return this.emitError(socketId, "NOT_YOUR_TURN");
     if (this.state.phase !== "playing") return;
     const type = command?.type;
 
+    // Pause is a game-wide toggle. Anyone in the room can trigger it — the
+    // buttons live on the explainers' screens (guesser has no buttons).
     if (type === "PAUSE_TOGGLE") {
+      if (!this.room.players.has(socketId)) return;
       if (this.state.turnPhase !== "play") return;
       if (this.state.paused) this.resumeTurn(socketId);
       else this.pauseTurn(socketId);
@@ -289,25 +291,48 @@ export class WhoIsWhoEngine extends BaseEngine {
     if (this.state.paused) return;
     if (this.state.turnPhase !== "play") return;
 
+    // In this game the CURRENT player is the GUESSER — they see no word,
+    // they ask yes/no questions. The OTHER players see the word and confirm.
+    // So the guesser must NOT act; anyone else in the room can.
+    if (socketId === cur.id) return this.emitError(socketId, "GUESSER_CANNOT_ACT");
+    if (!this.room.players.has(socketId)) return;
+
+    // Per-item lock: block a second YES/NO/PASS on the same card so two
+    // confirmers tapping at once don't award double points.
+    if (this.state._actionLocked) return;
+    this.state._actionLocked = true;
+
     if (type === "YES") {
       const playerId = this.state.currentPlayerId;
       this.state.scores[playerId] = (this.state.scores[playerId] || 0) + 1;
       const score = this.state.scores[playerId];
-      this.emitEvent({ type: "YES", by: socketId, score });
-      this.nextItem(); this.emitState(); return;
+      this.emitEvent({ type: "YES", by: socketId, forPlayer: playerId, score });
+      this.nextItem();
+      this.state._actionLocked = false;
+      this.emitState(); return;
     }
 
     if (type === "NO") {
       this.emitEvent({ type: "NO", by: socketId });
-      this.nextItem(); this.emitState(); return;
+      this.nextItem();
+      this.state._actionLocked = false;
+      this.emitState(); return;
     }
 
     if (type === "PASS") {
-      if ((this.state.passLeft || 0) <= 0) return this.emitError(socketId, "NO_PASSES_LEFT");
+      if ((this.state.passLeft || 0) <= 0) {
+        this.state._actionLocked = false;
+        return this.emitError(socketId, "NO_PASSES_LEFT");
+      }
       this.state.passLeft -= 1;
       this.emitEvent({ type: "PASS", by: socketId, left: this.state.passLeft });
-      this.nextItem(); this.emitState(); return;
+      this.nextItem();
+      this.state._actionLocked = false;
+      this.emitState(); return;
     }
+
+    // Unknown command — release the lock so future actions still work.
+    this.state._actionLocked = false;
   }
 
   restartGame(socketId) {
@@ -359,9 +384,12 @@ export class WhoIsWhoEngine extends BaseEngine {
   getPrivateState(playerId) {
     const cur = this.currentPlayer();
     if (!cur) return { canAct: false, role: "NONE", item: null };
-    const isExplainer = playerId === cur.id;
+    // Current player is the GUESSER (no word visible, asks questions).
+    // Everyone else is an EXPLAINER (sees the word, taps ✅/⏭).
+    const isGuesser = playerId === cur.id;
+    const isExplainer = !isGuesser;
     return {
-      role: isExplainer ? "EXPLAINER" : "GUESSER",
+      role: isGuesser ? "GUESSER" : "EXPLAINER",
       canAct: isExplainer && this.state.phase === "playing" && this.state.turnPhase === "play" && !this.state.paused,
       item: isExplainer ? (this.state.item ? { type: "text", value: this.state.item.nome } : null) : null,
     };

@@ -563,6 +563,7 @@ export default function App() {
   const [guestWaiting,    setGuestWaiting]    = useState(false);
 
   const rejoinRef = useRef(false);
+  const hasConnectedRef = useRef(false); // false = we've never connected in this tab
   const [showNameOverlay,  setShowNameOverlay]  = useState(false);
   const [nameOverlayJoin,  setNameOverlayJoin]  = useState(null); // { roomCode, gameType }
 
@@ -662,12 +663,13 @@ export default function App() {
   useEffect(() => {
     const onConnect = () => {
       setConnected(true);
-      // Auto-resume: after a mid-game disconnect (phone call, tab switch,
-      // network drop), socket.io reconnects transparently. Ask the server
-      // to reattach us to any room we still remember via clientId.
+      // Initial mount handles the very first connect (deep-link / restore).
+      // Every subsequent connect is a reconnect — ask the server to reattach
+      // us to whatever room we still remember, via the persistent clientId.
+      if (!hasConnectedRef.current) { hasConnectedRef.current = true; return; }
       const savedCode = localStorage.getItem(LS_ROOM_CODE);
-      if (savedCode && !rejoinRef.current) return; // initial mount handles it
-      if (savedCode) socket.emit("room:resume", { roomCode: savedCode, clientId });
+      if (!savedCode) return;
+      socket.emit("room:resume", { roomCode: savedCode, clientId });
     };
     const onDisconnect = () => setConnected(false);
     socket.on("connect",    onConnect);
@@ -676,6 +678,17 @@ export default function App() {
       setRoom(room); if (rc) setRoomCode(rc); setLoading(null);
       const me = room?.players?.find(p => p.id === socket.id);
       if (me?.team) localStorage.setItem(LS_ROOM_TEAM, me.team);
+    });
+    // Fallback: if the server can no longer match our slot (grace expired,
+    // room disappeared), silently retry with a fresh room:join so we still
+    // reappear as the same clientId. Never wipe localStorage here — a
+    // transient failure should NOT force the user to reconnect manually.
+    socket.on("room:resume:failed", () => {
+      const savedCode = localStorage.getItem(LS_ROOM_CODE);
+      if (!savedCode) return;
+      const savedName = (localStorage.getItem(LS_NAME) || "Player").trim() || "Player";
+      const savedTeam = localStorage.getItem(LS_ROOM_TEAM) || "A";
+      socket.emit("room:join", { roomCode: savedCode, name: savedName, team: savedTeam, clientId });
     });
     socket.on("room:created", ({ roomCode, room }) => {
       setLoading(null); setRoomCode(roomCode); setRoom(room);
@@ -726,7 +739,7 @@ export default function App() {
     return () => {
       socket.off("connect",onConnect); socket.off("disconnect",onDisconnect);
       socket.off("room:created"); socket.off("room:update"); socket.off("room:error");
-      socket.off("room:resumed");
+      socket.off("room:resumed"); socket.off("room:resume:failed");
       socket.off("game:state"); socket.off("game:error"); socket.off("room:gameChanged");
     };
   }, [showNotice]);

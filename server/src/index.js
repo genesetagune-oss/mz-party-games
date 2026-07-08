@@ -141,23 +141,32 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
   });
 
   // ---------- RESUME (auto-reconnect after disconnect) ----------
-  socket.on("room:resume", ({ roomCode, clientId }) => {
+  // Emits a "room:resume:failed" (not room:error) on failure so the client
+  // can silently fall back to a fresh room:join without wiping localStorage
+  // or showing an alert. Successful resumes emit "room:resumed" + broadcast
+  // "room:update" so every player sees the reattachment.
+  socket.on("room:resume", ({ roomCode, clientId } = {}, callback) => {
     if (!roomCode || !clientId) {
-      socket.emit("room:error", { code: "RESUME_INVALID" });
+      const err = { code: "RESUME_INVALID" };
+      socket.emit("room:resume:failed", err);
+      callback?.({ ok: false, ...err });
       return;
     }
     const room = roomManager.getRoom(roomCode);
     if (!room) {
-      socket.emit("room:error", { code: "ROOM_NOT_FOUND" });
+      const err = { code: "ROOM_NOT_FOUND" };
+      socket.emit("room:resume:failed", err);
+      callback?.({ ok: false, ...err });
       return;
     }
-    // Find the disconnected player by clientId and re-attach this new socket.
     let matched = null;
     for (const p of room.players.values()) {
       if (p.clientId === clientId) { matched = p; break; }
     }
     if (!matched) {
-      socket.emit("room:error", { code: "RESUME_NOT_FOUND" });
+      const err = { code: "RESUME_NOT_FOUND" };
+      socket.emit("room:resume:failed", err);
+      callback?.({ ok: false, ...err });
       return;
     }
     const oldId = matched.id;
@@ -172,10 +181,9 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
       roomCode,
       room: roomManager.publicRoomState(room),
     });
-    socket.emit("room:resumed", {
-      roomCode,
-      room: roomManager.publicRoomState(room),
-    });
+    const payload = { roomCode, room: roomManager.publicRoomState(room) };
+    socket.emit("room:resumed", payload);
+    callback?.({ ok: true, ...payload });
   });
 
   // SET CATEGORY (host-only, lobby only)

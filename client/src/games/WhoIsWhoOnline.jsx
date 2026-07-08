@@ -285,33 +285,37 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                 {paused ? "⏸ Pausado" : turnPhase === "ready" ? `Pronto… ${remaining}s` : `Vez de ${playerName} — ${remaining}s`}
               </section>
 
+              {/* Hint banner — rendered ABOVE .whoStage so its overflow:hidden
+                  cannot clip it, and outside the card container so a big card
+                  word never covers it. */}
+              {hintUnlocked && (
+                <section
+                  aria-live="polite"
+                  style={{
+                    display: "flex", justifyContent: "center", padding: "4px 0 6px",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <div style={{
+                    background: "linear-gradient(135deg,#F59E0B,#F97316)",
+                    color: "#1a1300",
+                    padding: "10px 20px", borderRadius: 999,
+                    fontWeight: 900, fontSize: "clamp(15px,3.4vw,22px)",
+                    letterSpacing: ".01em",
+                    border: "2px solid rgba(255,255,255,0.5)",
+                    animation: "wizHintPulse 1.4s ease-in-out infinite",
+                    maxWidth: "min(94%, 460px)", textAlign: "center",
+                  }}>
+                    💡 A mesa pode dar dicas agora!
+                  </div>
+                </section>
+              )}
+
               {/* Card area */}
               <section className="whoStage" style={{ position: "relative", minHeight: 160 }}>
                 {floatMsg && (
                   <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-60%)", fontSize: 32, fontWeight: 950, pointerEvents: "none", zIndex: 10, animation: "floatUp .9s ease forwards" }}>
                     {floatMsg}
-                  </div>
-                )}
-                {hintUnlocked && (
-                  <div
-                    aria-live="polite"
-                    style={{
-                      position: "absolute", top: 12, left: "50%",
-                      transform: "translateX(-50%)",
-                      zIndex: 5, pointerEvents: "none",
-                    }}
-                  >
-                    <div style={{
-                      background: "linear-gradient(135deg,#F59E0B,#F97316)",
-                      color: "#1a1300",
-                      padding: "10px 18px", borderRadius: 999,
-                      fontWeight: 900, fontSize: "clamp(14px,3vw,20px)",
-                      whiteSpace: "nowrap",
-                      border: "2px solid rgba(255,255,255,0.4)",
-                      animation: "wizHintPulse 1.4s ease-in-out infinite",
-                    }}>
-                      💡 A mesa pode dar dicas agora!
-                    </div>
                   </div>
                 )}
                 <div className="whoStageInner" style={{ transform: "none" }}>
@@ -324,16 +328,19 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                       </div>
                     </div>
                   ) : isExplainer ? (
-                    item ? (
-                      <div className="whoCardText">{item.value}</div>
-                    ) : (
-                      <div className="whoSmall">Sem carta…</div>
-                    )
+                    <div style={{ textAlign: "center" }}>
+                      <div className="whoSmall" style={{ opacity: 0.55, marginBottom: 6 }}>{playerName} está a adivinhar…</div>
+                      {item ? (
+                        <div className="whoCardText">{item.value}</div>
+                      ) : (
+                        <div className="whoSmall">Sem carta…</div>
+                      )}
+                    </div>
                   ) : (
                     <div style={{ textAlign: "center" }}>
                       <div className="whoBig">🤔</div>
                       <div className="whoSmall" style={{ marginTop: 8 }}>Faz perguntas de SIM / NÃO!</div>
-                      <div className="whoSmall" style={{ opacity: 0.5, marginTop: 4 }}>{playerName} responde com os botões</div>
+                      <div className="whoSmall" style={{ opacity: 0.5, marginTop: 4 }}>Os outros confirmam quando acertares</div>
                     </div>
                   )}
                 </div>
@@ -360,7 +367,7 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                   </>
                 ) : (
                   <div className="footNoteDock" style={{ opacity: 0.7 }}>
-                    {turnPhase === "play" ? `Adivinha! ${playerName} confirma.` : "Aguarda…"}
+                    {turnPhase === "play" ? "Adivinha! Os outros confirmam." : "Aguarda…"}
                   </div>
                 )}
               </footer>
