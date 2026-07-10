@@ -4,6 +4,9 @@ import { QUEM_SOU_EU_DB, CATEGORIAS, getDeckForCategory } from "./quemSouEuDB.js
 const READY_SECONDS = 3;
 const PASSES_PER_TURN = 5;
 const WIN_SCORE = 10;
+// Letter-hint fires when the current turn has this many seconds left.
+const LETTER_HINT_TRIGGER_MS = 60_000;
+const LETTER_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]/;
 
 function autoTurnSeconds(playerCount) {
   if (playerCount <= 2) return 90;
@@ -27,6 +30,21 @@ function normalizeCategory(cat) {
   const c = String(cat || "").trim().toLowerCase();
   const valid = CATEGORIAS.map(x => x.id);
   return valid.includes(c) ? c : "mix";
+}
+
+// Pick ONE random letter from `word` and map it to one of 3 fixed slots by
+// which third of the word it comes from. Slot count is fixed at 3 on purpose
+// so the guesser cannot infer the real word length.
+function generateLetterHint(word) {
+  if (!word || typeof word !== "string") return null;
+  const positions = [];
+  for (let i = 0; i < word.length; i++) {
+    if (LETTER_RE.test(word[i])) positions.push(i);
+  }
+  if (!positions.length) return null;
+  const chosen = positions[Math.floor(Math.random() * positions.length)];
+  const slot = Math.min(2, Math.floor((chosen * 3) / word.length));
+  return { letter: word[chosen].toUpperCase(), slot };
 }
 
 export class WhoIsWhoEngine extends BaseEngine {
@@ -53,6 +71,8 @@ export class WhoIsWhoEngine extends BaseEngine {
       passLeft: PASSES_PER_TURN,
       turnSeconds: 60,
       turnSecondsOverride: null,
+      letterHintEnabled: true,   // Host-toggled setting, default ON.
+      letterHint: null,          // { letter, slot } for the current item, or null.
     };
   }
 
@@ -98,6 +118,7 @@ export class WhoIsWhoEngine extends BaseEngine {
     const idx = this.state.deckIndex % deck.length;
     this.state.item = deck[idx] || null;
     this.state.deckIndex = (this.state.deckIndex + 1) % deck.length;
+    this.state.letterHint = null; // new word — hint is per-item
   }
 
   computeTurnSeconds() {
@@ -129,7 +150,25 @@ export class WhoIsWhoEngine extends BaseEngine {
       const v = parseInt(settings.turnSecondsOverride, 10);
       this.state.turnSecondsOverride = (isNaN(v) || v <= 0) ? null : Math.min(Math.max(v, 15), 180);
     }
+    if (typeof settings.letterHintEnabled === "boolean") {
+      this.state.letterHintEnabled = settings.letterHintEnabled;
+    }
     this.emitState();
+  }
+
+  // Compute and cache a hint for the current item once the play timer drops
+  // below LETTER_HINT_TRIGGER_MS. Runs from the play-phase interval so the
+  // hint appears live without needing an extra socket message.
+  _maybeGenerateLetterHint() {
+    if (!this.state.letterHintEnabled) return;
+    if (this.state.letterHint) return;
+    if (this.state.phase !== "playing") return;
+    if (this.state.turnPhase !== "play") return;
+    if (this.state.paused) return;
+    if (!this.state.item?.nome) return;
+    const remaining = this.state.endsAt ? this.state.endsAt - Date.now() : 0;
+    if (remaining > LETTER_HINT_TRIGGER_MS) return;
+    this.state.letterHint = generateLetterHint(this.state.item.nome);
   }
 
   startGame(socketId) {
@@ -202,8 +241,12 @@ export class WhoIsWhoEngine extends BaseEngine {
     this.state.paused = false;
     this.state.pausedRemainingMs = 0;
     this.state.endsAt = Date.now() + time;
+    this.state.letterHint = null; // fresh turn — no hint yet
     this.emitEvent({ type: "TURN_STARTED", by: this.state.currentPlayerId });
-    this._setInterval(() => this.emitState(), 300);
+    this._setInterval(() => {
+      this._maybeGenerateLetterHint();
+      this.emitState();
+    }, 300);
     this._setTimeout(() => this.endTurn("TIME_UP"), time);
     this.emitState();
   }
@@ -347,6 +390,7 @@ export class WhoIsWhoEngine extends BaseEngine {
     this.state.currentPlayerId = null; this.state.endsAt = null;
     this.state.paused = false; this.state.pausedRemainingMs = 0;
     this.state.scores = {}; this.state.winner = null; this.state.passLeft = PASSES_PER_TURN;
+    this.state.letterHint = null;
     this.resetDeck(cat);
     this.emitState();
   }
@@ -378,6 +422,8 @@ export class WhoIsWhoEngine extends BaseEngine {
       passLeft: this.state.passLeft,
       turnSeconds: this.state.turnSeconds,
       turnSecondsOverride: this.state.turnSecondsOverride,
+      letterHintEnabled: !!this.state.letterHintEnabled,
+      letterHint: this.state.letterHint,
     };
   }
 

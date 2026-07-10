@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
 import { CATEGORIAS } from "../../games/quemSouEuDB.js";
+import { playSound, setMuted, isMuted } from "../utils/sound";
+
+const LS_WIZ_SOUND = "mzpg_wiz_sound";
 
 const TURN_OPTIONS = [
   { label: "Auto", value: null },
@@ -21,6 +24,93 @@ const RULES = [
 // Ratio of turn time remaining when the "table can hint now" prompt unlocks.
 // 0.45 → 90s turn shows it at ~40s left; 60s → ~27s; 40s → ~18s.
 const HINT_UNLOCK_RATIO = 0.45;
+
+// Small, self-contained UI primitives used by the Settings panel.
+// Kept in this file — they aren't shared with other games and each has its
+// own dark-theme visual treatment that doesn't warrant a separate module.
+function SettingSection({ title, desc, children, disabled, last }) {
+  return (
+    <div style={{
+      paddingBottom: last ? 0 : 14,
+      marginBottom: last ? 0 : 14,
+      borderBottom: last ? "none" : "1px solid rgba(255,255,255,0.06)",
+      opacity: disabled ? 0.75 : 1,
+    }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+        <div style={{ fontWeight: 800, fontSize: 13.5, color: "#fff", letterSpacing: 0.1 }}>{title}</div>
+      </div>
+      <div style={{ fontSize: 11.5, opacity: 0.55, marginBottom: 10, lineHeight: 1.45 }}>{desc}</div>
+      {children}
+    </div>
+  );
+}
+
+function SwitchRow({ on, onChange, disabled, onLabel = "Ligado", offLabel = "Desligado" }) {
+  return (
+    <label style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      gap: 12, padding: "8px 12px",
+      background: "rgba(255,255,255,0.04)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 12,
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.6 : 1,
+    }}>
+      <span style={{ fontSize: 12.5, fontWeight: 700, color: on ? "#fff" : "rgba(234,236,244,0.6)" }}>
+        {on ? onLabel : offLabel}
+      </span>
+      <span
+        role="switch" aria-checked={on}
+        onClick={(e) => { e.preventDefault(); if (!disabled) onChange(!on); }}
+        style={{
+          position: "relative",
+          width: 44, height: 24, borderRadius: 999,
+          background: on ? "linear-gradient(135deg,#00D4B4,#7c5dfa)" : "rgba(255,255,255,0.12)",
+          border: `1px solid ${on ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)"}`,
+          transition: "background 180ms ease",
+          flexShrink: 0,
+        }}
+      >
+        <span style={{
+          position: "absolute", top: 2, left: on ? 22 : 2,
+          width: 18, height: 18, borderRadius: "50%",
+          background: "#fff",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+          transition: "left 180ms ease",
+        }} />
+      </span>
+    </label>
+  );
+}
+
+// Component used to render the 3-slot letter hint. Kept minimal so it renders
+// the same way whether inside the guesser panel or the shared card area.
+function LetterHintSlots({ hint, small }) {
+  if (!hint || typeof hint.slot !== "number" || !hint.letter) return null;
+  const size = small ? 34 : 44;
+  const font = small ? 20 : 26;
+  return (
+    <div style={{ display: "flex", gap: small ? 8 : 12, justifyContent: "center" }}>
+      {[0, 1, 2].map((i) => {
+        const active = i === hint.slot;
+        return (
+          <div key={i} style={{
+            width: size, height: size, borderRadius: 10,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: active ? "linear-gradient(135deg,#00D4B4,#7c5dfa)" : "rgba(255,255,255,0.06)",
+            border: `2px solid ${active ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.12)"}`,
+            color: active ? "#fff" : "rgba(234,236,244,0.4)",
+            fontWeight: 950, fontSize: font,
+            fontFamily: "'Cormorant Garamond', Georgia, serif",
+            boxShadow: active ? "0 4px 14px rgba(124,93,250,0.35)" : "none",
+          }}>
+            {active ? hint.letter : "*"}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me = room?.players?.find((p) => p.id === socket.id) || null;
@@ -44,13 +134,28 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
 
   const role = gamePrivate?.role ?? "NONE";
   const isExplainer = role === "EXPLAINER";
+  const isGuesser = role === "GUESSER";
   const canAct = !!gamePrivate?.canAct;
   const item = gamePrivate?.item ?? null;
+
+  // Host-controlled feature flag; guesser sees the letter mask, explainers hide it.
+  const letterHintEnabled = gamePublic?.letterHintEnabled !== false; // default true
+  const letterHint = gamePublic?.letterHint ?? null; // { letter, slot } | null
 
   const [floatMsg, setFloatMsg] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [shareFeedback, setShareFeedback] = useState("");
+  // Per-device sound preference, opt-out (default ON). Not synced to other clients.
+  const [soundOn, setSoundOn] = useState(() => {
+    const v = localStorage.getItem(LS_WIZ_SOUND);
+    return v === null ? true : v === "1";
+  });
+  useEffect(() => {
+    localStorage.setItem(LS_WIZ_SOUND, soundOn ? "1" : "0");
+    setMuted(!soundOn);
+  }, [soundOn]);
+  useEffect(() => { setMuted(!soundOn); }, []); // apply on mount too
 
   function showFloat(msg) {
     setFloatMsg(msg);
@@ -75,10 +180,23 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
   const startGame    = () => { warmupAudio(); socket.emit("game:start"); };
   const setCat       = (cat) => { socket.emit("game:setCategory", { category: cat }); };
   const setOverride  = (v) => socket.emit("game:setSettings", { turnSecondsOverride: v });
+  const setLetterHint = (v) => socket.emit("game:setSettings", { letterHintEnabled: !!v });
   const yes          = () => { warmupAudio(); showFloat("✅ +1"); socket.emit("game:command", { type: "YES" }); };
   const pass         = () => { warmupAudio(); socket.emit("game:command", { type: "PASS" }); };
   const togglePause  = () => { warmupAudio(); socket.emit("game:command", { type: "PAUSE_TOGGLE" }); };
   const restart      = () => { warmupAudio(); socket.emit("game:restart"); };
+
+  // Play the "correct" chime whenever the server tells us a guess landed.
+  // Runs for everyone (guesser hears their own point, explainers hear too).
+  useEffect(() => {
+    const handle = (evt) => {
+      if (!evt) return;
+      if (evt.type === "YES") playSound("correct");
+      else if (evt.type === "GAME_FINISHED") playSound("win");
+    };
+    socket.on("game:event", handle);
+    return () => socket.off("game:event", handle);
+  }, []);
 
   const handleShare = async () => {
     const url = `https://mz-party-games.onrender.com/?join=${roomCode}`;
@@ -117,12 +235,12 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
             </div>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            {isHost && isLobby && (
-              <button onClick={() => { setShowRules(false); setShowSettings(s => !s); }} type="button"
-                style={{ background: showSettings ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.08)", border: `1px solid ${showSettings ? "rgba(99,102,241,0.6)" : "rgba(255,255,255,0.13)"}`, borderRadius: 10, padding: "6px 10px", color: "#fff", fontSize: 16, cursor: "pointer" }}>
-                ⚙️
-              </button>
-            )}
+            {/* Settings is available to everyone — guests can toggle their own sound;
+                host-only options render locked for non-hosts. */}
+            <button onClick={() => { setShowRules(false); setShowSettings(s => !s); }} type="button"
+              style={{ background: showSettings ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.08)", border: `1px solid ${showSettings ? "rgba(99,102,241,0.6)" : "rgba(255,255,255,0.13)"}`, borderRadius: 10, padding: "6px 10px", color: "#fff", fontSize: 16, cursor: "pointer" }}>
+              ⚙️
+            </button>
             <button onClick={() => { setShowSettings(false); setShowRules(r => !r); }} type="button"
               style={{ background: showRules ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.08)", border: `1px solid ${showRules ? "rgba(99,102,241,0.6)" : "rgba(255,255,255,0.13)"}`, borderRadius: 10, padding: "6px 10px", color: "#fff", fontSize: 16, cursor: "pointer" }}>
               ❓
@@ -149,24 +267,88 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
             </div>
           )}
 
-          {/* ── SETTINGS PANEL (host, lobby only) ── */}
-          {showSettings && isHost && isLobby && (
-            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "14px 16px", marginBottom: 12 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 12 }}>⚙️ Definições</div>
-              <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 6 }}>Tempo por turno</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {TURN_OPTIONS.map(opt => (
-                  <button key={String(opt.value)} type="button" onClick={() => setOverride(opt.value)}
-                    style={{ padding: "7px 14px", borderRadius: 9, border: `1.5px solid ${turnSecondsOverride === opt.value ? "rgba(99,102,241,0.8)" : "rgba(255,255,255,0.15)"}`, background: turnSecondsOverride === opt.value ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.06)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {turnSecondsOverride == null && (
-                <div style={{ fontSize: 11, opacity: 0.5, marginTop: 8 }}>
-                  Auto atual: {gamePublic?.turnSeconds ?? "…"}s para {playerCount} jogadores
+          {/* ── SETTINGS PANEL ── */}
+          {showSettings && (
+            <div style={{
+              background: "linear-gradient(180deg, rgba(20,22,36,0.94) 0%, rgba(14,16,28,0.94) 100%)",
+              border: "1px solid rgba(124,93,250,0.28)",
+              borderRadius: 18,
+              padding: "16px 16px 14px",
+              marginBottom: 14,
+              boxShadow: "0 12px 34px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ fontSize: 22, lineHeight: 1 }}>⚙️</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 900, fontSize: 15, letterSpacing: 0.1 }}>Definições</div>
+                  <div style={{ fontSize: 11, opacity: 0.5, fontWeight: 600 }}>
+                    {isHost ? "Configura a partida" : "O host controla estas definições"}
+                  </div>
                 </div>
-              )}
+              </div>
+
+              {/* Turn time */}
+              <SettingSection
+                title="Tempo por turno"
+                desc="Segundos que cada jogador tem para adivinhar."
+                disabled={!isHost || !isLobby}
+              >
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {TURN_OPTIONS.map(opt => {
+                    const sel = turnSecondsOverride === opt.value;
+                    return (
+                      <button key={String(opt.value)} type="button"
+                        disabled={!isHost || !isLobby}
+                        onClick={() => setOverride(opt.value)}
+                        style={{
+                          padding: "8px 14px", borderRadius: 999,
+                          border: `1.5px solid ${sel ? "rgba(124,93,250,0.85)" : "rgba(255,255,255,0.14)"}`,
+                          background: sel ? "rgba(124,93,250,0.25)" : "rgba(255,255,255,0.05)",
+                          color: sel ? "#fff" : "rgba(234,236,244,0.75)",
+                          fontSize: 13, fontWeight: 800,
+                          cursor: isHost && isLobby ? "pointer" : "not-allowed",
+                          opacity: isHost && isLobby ? 1 : 0.6,
+                        }}>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {turnSecondsOverride == null && (
+                  <div style={{ fontSize: 11, opacity: 0.45, marginTop: 8 }}>
+                    Auto atual: <b>{gamePublic?.turnSeconds ?? "…"}s</b> para {playerCount} jogadores
+                  </div>
+                )}
+              </SettingSection>
+
+              {/* Letter hint */}
+              <SettingSection
+                title="Dica de letra"
+                desc="Aos 60s restantes, revela 1 letra em 3 slots (posição real, tamanho oculto)."
+                disabled={!isHost || !isLobby}
+              >
+                <SwitchRow
+                  on={letterHintEnabled}
+                  disabled={!isHost || !isLobby}
+                  onChange={setLetterHint}
+                  onLabel="Activado"
+                  offLabel="Desactivado"
+                />
+              </SettingSection>
+
+              {/* Sound (per device) */}
+              <SettingSection
+                title="Som"
+                desc="Toca um chime curto quando acertas. Só afecta este dispositivo."
+                last
+              >
+                <SwitchRow
+                  on={soundOn}
+                  onChange={setSoundOn}
+                  onLabel="Ligado"
+                  offLabel="Desligado"
+                />
+              </SettingSection>
             </div>
           )}
 
@@ -413,10 +595,18 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                       )}
                     </div>
                   ) : (
-                    <div style={{ textAlign: "center" }}>
+                    <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
                       <div className="whoBig">🤔</div>
-                      <div className="whoSmall" style={{ marginTop: 8 }}>Faz perguntas de SIM / NÃO!</div>
-                      <div className="whoSmall" style={{ opacity: 0.5, marginTop: 4 }}>Os outros confirmam quando acertares</div>
+                      <div className="whoSmall">Faz perguntas de SIM / NÃO!</div>
+                      <div className="whoSmall" style={{ opacity: 0.5 }}>Os outros confirmam quando acertares</div>
+                      {letterHint && (
+                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(0,212,180,0.85)" }}>
+                            💡 Dica de letra
+                          </div>
+                          <LetterHintSlots hint={letterHint} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
