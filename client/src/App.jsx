@@ -16,6 +16,7 @@ import SabeTudoOffline      from "../games/SabeTudo.jsx";
 import SabeTudoOnline       from "./games/SabeTudoOnline.jsx";
 import SporcleMZOffline     from "../games/SporcleMZ.jsx";
 import SporcleMZOnline      from "./games/SporcleMZOnline.jsx";
+import AgenteSecretoOnline  from "./games/AgenteSecretoOnline.jsx";
 
 import "./App.css";
 
@@ -68,6 +69,16 @@ const GAME_META = {
       "Responde rápido — 1º correcto: 3 pts · 2º: 2 pts · resto: 1 pt.",
       "Tens 12 segundos por pergunta.",
       "Mais pontos no final vence! 🏆",
+    ],
+  },
+  agenteSecreto: {
+    icon: "🕵️", name: "Agente Secreto", color: "#00D4B4", minPlayers: 3,
+    rules: [
+      "Todos recebem a MESMA palavra — excepto o(s) impostor(es), que recebem outra parecida.",
+      "O impostor NÃO sabe que é impostor.",
+      "2 rondas de dicas: cada jogador dá 1 dica sobre a sua palavra (sem a dizer).",
+      "Chat aberto para discutirem quem é o impostor.",
+      "Votação: se apanharem o impostor, o grupo ganha. Empate → nova ronda de dicas.",
     ],
   },
 };
@@ -258,9 +269,10 @@ function NameOverlay({ gameType, onConfirm, onCancel }) {
 
 function GameSwitchOverlay({ onSwitch, onCancel, currentGame }) {
   const games = [
-    { key: "thirtySeconds", icon: "⏱️", name: "30 Segundos" },
-    { key: "whoIsWho",      icon: "🎭", name: "Quem Sou Eu?" },
-    { key: "sporcleMZ",     icon: "🧩", name: "Sporcle MZ" },
+    { key: "thirtySeconds",  icon: "⏱️", name: "30 Segundos" },
+    { key: "whoIsWho",       icon: "🎭", name: "Quem Sou Eu?" },
+    { key: "agenteSecreto",  icon: "🕵️", name: "Agente Secreto" },
+    { key: "sporcleMZ",      icon: "🧩", name: "Sporcle MZ" },
   ].filter(g => g.key !== currentGame);
   return (
     <div className="noticeOverlay" onClick={onCancel}>
@@ -787,6 +799,10 @@ export default function App() {
     if (!connected) return showNotice("Servidor","Desconectado.");
     showRulesFor("sporcleMZ", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"sporcleMZ",name:name.trim()||"Player",team:"A",clientId}); });
   };
+  const createAgenteSecretoRoom = () => {
+    if (!connected) return showNotice("Servidor","Desconectado.");
+    showRulesFor("agenteSecreto", () => { localStorage.setItem(LS_NAME_OK, "1"); setLoading("A criar sala…"); socket.emit("room:create",{gameType:"agenteSecreto",name:name.trim()||"Player",team:"A",clientId}); });
+  };
 
   const joinRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
@@ -882,8 +898,9 @@ export default function App() {
   const onSwitchGame = () => setSwitchingGame(true);
 
   // these games handle their own lobby phase — must come before generic inLobby check
-  if (room?.gameType === "sporcleMZ")  return <><SporcleMZOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
-  if (room?.gameType === "whoIsWho")   return <><WhoIsWhoOnline  room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
+  if (room?.gameType === "sporcleMZ")     return <><SporcleMZOnline     room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
+  if (room?.gameType === "whoIsWho")      return <><WhoIsWhoOnline      room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
+  if (room?.gameType === "agenteSecreto") return <><AgenteSecretoOnline room={room} roomCode={roomCode} gamePublic={gamePublic} gamePrivate={gamePrivate} onBack={() => leaveRoom(false)} onSwitchGame={onSwitchGame} /><Overlays /></>;
 
   if (room && inLobby) return <><LobbyScreen room={room} roomCode={roomCode} onLeave={() => leaveRoom(true)} gamePublic={gamePublic} onRules={() => openRulesOnly(room.gameType)} /><Overlays /></>;
 
@@ -969,9 +986,10 @@ export default function App() {
         </header>
         <section className="panel">
           <div style={{display:"grid",gap:10}}>
-            <GameCard icon="⏱️" title="30 Segundos"    sub="CulturaGeral_MZ ou Global" onClick={create30sRoom}      badge="2+ jogadores" color="#7c5dfa" />
-            <GameCard icon="🎭" title="Quem Sou Eu?"   sub="Adivinha com dicas · 90s"  onClick={createWhoIsWhoRoom} badge="2+ jogadores" color="#4a9eff" />
-            <GameCard icon="🧩" title="Sporcle MZ"    sub="Quiz cronometrado · 3 temas" onClick={createSporcleMZRoom} badge="2+ jogadores" color="#7c5dfa" />
+            <GameCard icon="⏱️" title="30 Segundos"      sub="CulturaGeral_MZ ou Global"    onClick={create30sRoom}          badge="2+ jogadores" color="#7c5dfa" />
+            <GameCard icon="🎭" title="Quem Sou Eu?"     sub="Adivinha com dicas · 90s"     onClick={createWhoIsWhoRoom}     badge="2+ jogadores" color="#4a9eff" />
+            <GameCard icon="🕵️" title="Agente Secreto"   sub="Bluff · encontra o impostor"  onClick={createAgenteSecretoRoom} badge="3+ jogadores" color="#00D4B4" />
+            <GameCard icon="🧩" title="Sporcle MZ"       sub="Quiz cronometrado · 3 temas"  onClick={createSporcleMZRoom}    badge="2+ jogadores" color="#7c5dfa" />
           </div>
           <button
             type="button"

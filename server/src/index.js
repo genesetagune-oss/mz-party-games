@@ -229,13 +229,15 @@ socket.on("room:preview", ({ roomCode } = {}, callback) => {
     const player = room.players.get(socket.id);
     if (!player?.isHost) return;
 
-    const valid = ["thirtySeconds", "whoIsWho", "sporcleMZ"];
+    const valid = ["thirtySeconds", "whoIsWho", "sporcleMZ", "agenteSecreto"];
     if (!valid.includes(gameType)) return;
 
     room.engine?.destroy?.();
     room.gameType = gameType;
     room.status = "lobby";
-    room.config.maxPlayers = gameType === "sporcleMZ" ? 20 : 8;
+    room.config.maxPlayers =
+      gameType === "sporcleMZ"     ? 20 :
+      gameType === "agenteSecreto" ? 20 : 8;
     room.closed = room.players.size >= room.config.maxPlayers;
     room.engine = createEngine(gameType, { io, roomCode: code, room });
 
