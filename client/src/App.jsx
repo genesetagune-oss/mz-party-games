@@ -229,16 +229,37 @@ function TeamOverlay({ mode, onConfirm, onCancel, initialName }) {
   );
 }
 
-function NameOverlay({ gameType, onConfirm, onCancel }) {
-  const [draft, setDraft] = useState("");
+// Three modes:
+//  - "first-open" → blocking welcome overlay, no cancel / no click-outside
+//  - "join"       → deep-link name prompt with game context (dismissible)
+//  - "edit"       → change the saved name later (dismissible, pre-filled)
+function NameOverlay({ mode = "join", gameType, initial = "", onConfirm, onCancel }) {
+  const [draft, setDraft] = useState(initial);
   const ok = draft.trim().length >= 1;
   const meta = GAME_META[gameType] || {};
+  const dismissible = mode !== "first-open";
+
+  const title =
+    mode === "first-open" ? "👋 Bem-vindo!" :
+    mode === "edit"       ? "✎ O teu nome" :
+    `${meta.icon || ""} ${meta.name || "Sala"}`;
+
+  const subtitle =
+    mode === "first-open" ? "Como te chamas? Vais aparecer com este nome nos jogos." :
+    mode === "edit"       ? "Muda o nome que os outros jogadores vão ver." :
+    "Escreve o teu nome para entrar";
+
+  const confirmLabel =
+    mode === "first-open" ? "Vamos jogar" :
+    mode === "edit"       ? "Guardar" :
+    "Entrar na sala";
+
   return (
-    <div className="teamOverlay" onClick={onCancel}>
+    <div className="teamOverlay" onClick={dismissible ? onCancel : undefined}>
       <div className="teamCard" onClick={e => e.stopPropagation()}>
         <div style={{ textAlign: "center" }}>
-          <div className="teamTitle">{meta.icon} {meta.name || "Sala"}</div>
-          <div style={{ fontSize: 13, opacity: .55, marginTop: 4 }}>Escreve o teu nome para entrar</div>
+          <div className="teamTitle">{title}</div>
+          <div style={{ fontSize: 13, opacity: .55, marginTop: 4 }}>{subtitle}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(234,236,244,.45)" }}>
@@ -256,12 +277,14 @@ function NameOverlay({ gameType, onConfirm, onCancel }) {
         </div>
         <button type="button" className="btnPrimary" disabled={!ok}
           onClick={() => onConfirm(draft.trim())} style={{ opacity: ok ? 1 : 0.4 }}>
-          Entrar na sala
+          {confirmLabel}
         </button>
-        <button type="button" onClick={onCancel}
-          style={{ background:"none", border:"none", color:"rgba(234,236,244,.45)", fontSize:13, cursor:"pointer", padding:0, textAlign:"center" }}>
-          Cancelar
-        </button>
+        {dismissible && (
+          <button type="button" onClick={onCancel}
+            style={{ background:"none", border:"none", color:"rgba(234,236,244,.45)", fontSize:13, cursor:"pointer", padding:0, textAlign:"center" }}>
+            Cancelar
+          </button>
+        )}
       </div>
     </div>
   );
@@ -557,7 +580,9 @@ export default function App() {
   const [roomCode,        setRoomCode]        = useState("");
   const [loading,         setLoading]         = useState(null);
   const [inLobby,         setInLobby]         = useState(false);
-  const [name,            setName]            = useState(() => { const s = localStorage.getItem(LS_NAME); return s?.trim() ? s.trim() : "Tony"; });
+  // Fallback is empty — the first-open overlay always runs before any UI that
+  // would show a name, so the user picks one instead of playing as "Tony".
+  const [name,            setName]            = useState(() => (localStorage.getItem(LS_NAME) || "").trim());
   const [joinCode,        setJoinCode]        = useState("");
   const [view,            setView]            = useState("HOME");
   const [offlineGame,     setOfflineGame]     = useState(null);
@@ -578,6 +603,12 @@ export default function App() {
   const hasConnectedRef = useRef(false); // false = we've never connected in this tab
   const [showNameOverlay,  setShowNameOverlay]  = useState(false);
   const [nameOverlayJoin,  setNameOverlayJoin]  = useState(null); // { roomCode, gameType }
+  // Blocking overlay on the very first open — initialise from storage so the
+  // welcome shows on render 1 (no "Tony" flash before the effect runs).
+  const [showFirstOpenName, setShowFirstOpenName] = useState(
+    () => localStorage.getItem(LS_NAME_OK) !== "1"
+  );
+  const [showEditName, setShowEditName] = useState(false);
 
   const roomJoinedRef   = useRef(false);
   const gameStartedRef  = useRef(false);
@@ -861,7 +892,35 @@ export default function App() {
   const Overlays = () => (
     <>
       {notice    && <Notice title={notice.title} message={notice.message} dontShow={dontShowAgain} setDontShow={setDontShowAgain} onClose={closeNotice} />}
-      {showNameOverlay && nameOverlayJoin && <NameOverlay gameType={nameOverlayJoin.gameType} onConfirm={confirmNameAndJoin} onCancel={() => { setShowNameOverlay(false); setNameOverlayJoin(null); }} />}
+      {/* First-open blocking welcome — takes precedence over other name UIs.
+          A deep-link name prompt subsumes it (it already collects the name in
+          its own overlay), so we hide first-open when the join overlay opens. */}
+      {showFirstOpenName && !showNameOverlay && (
+        <NameOverlay
+          mode="first-open"
+          initial={name}
+          onConfirm={(n) => {
+            setName(n);
+            localStorage.setItem(LS_NAME, n);
+            localStorage.setItem(LS_NAME_OK, "1");
+            setShowFirstOpenName(false);
+          }}
+        />
+      )}
+      {showEditName && (
+        <NameOverlay
+          mode="edit"
+          initial={name}
+          onConfirm={(n) => {
+            setName(n);
+            localStorage.setItem(LS_NAME, n);
+            localStorage.setItem(LS_NAME_OK, "1");
+            setShowEditName(false);
+          }}
+          onCancel={() => setShowEditName(false)}
+        />
+      )}
+      {showNameOverlay && nameOverlayJoin && <NameOverlay mode="join" gameType={nameOverlayJoin.gameType} onConfirm={confirmNameAndJoin} onCancel={() => { setShowNameOverlay(false); setNameOverlayJoin(null); }} />}
       {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} initialName={name} />}
       {rulesFor  && <RulesModal gameType={rulesFor} onClose={closeRules} onPlay={confirmRules} />}
 {switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} currentGame={room?.gameType} />}
@@ -946,7 +1005,7 @@ export default function App() {
               <span style={{ display:"block", fontSize:28, color:"rgba(255,255,255,0.85)", fontWeight:700, letterSpacing:0 }}>MZ Party</span>
               <span style={{ display:"block", fontSize:64, color:"#00C9A7", textShadow:"0 0 40px rgba(0,201,167,0.35)" }}>Games</span>
             </div>
-            <div className="heroPill" onClick={() => { const n = window.prompt("O teu nome:", name); if (n?.trim()) { setName(n.trim()); localStorage.setItem(LS_NAME_OK, "1"); } }}>
+            <div className="heroPill" onClick={() => setShowEditName(true)}>
               <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(0,201,167,0.15)", border:"1.5px solid rgba(0,201,167,0.3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:"#00C9A7", flexShrink:0 }}>
                 {(name || "?")[0].toUpperCase()}
               </div>
