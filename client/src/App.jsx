@@ -153,12 +153,14 @@ function NavBar({ onBack, title, subtitle, rightHint, rightDotColor }) {
         style={{
           width: 40, height: 40, borderRadius: 999,
           display: "flex", alignItems: "center", justifyContent: "center",
-          background: "transparent", border: "none",
-          color: "rgba(234,236,244,0.72)", fontSize: 22, fontWeight: 700,
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          color: "#fff", fontSize: 22, fontWeight: 800,
           cursor: "pointer", padding: 0, flexShrink: 0,
+          lineHeight: 1,
         }}
       >
-        ‹
+        ←
       </button>
       <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
         <div style={{
@@ -474,8 +476,8 @@ function LobbyScreen({ room, roomCode, onLeave, gamePublic, onRules }) {
     <div className="appBg">
       <div className="shell">
         <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:18}}>
-          <button onClick={onLeave} className="btnBack" type="button" style={{flexShrink:0}}>
-            ← Sair
+          <button onClick={onLeave} className="btnGhost" type="button" style={{flexShrink:0, padding:"7px 14px", fontSize:13}}>
+            ← Menu
           </button>
           <div style={{flex:1}}>
             <div style={{
@@ -1116,10 +1118,10 @@ export default function App() {
         <section className="panel">
           <div style={{display:"grid",gap:10}}>
             {/* Party games first (social intent), then quiz. New game highlighted. */}
-            <GameCard icon="🕵️" title="Agente Secreto" sub="Bluff · encontra o impostor" meta="3+ jogadores" onClick={createAgenteSecretoRoom} isNew color="#00D4B4" />
+            <GameCard icon="🕵️" title="Agente Secreto" sub="Bluff · encontra o impostor" meta="3+ jogadores" onClick={createAgenteSecretoRoom} color="#00D4B4" />
             <GameCard icon="🎭" title="Quem Sou Eu?"   sub="Adivinha com dicas · 90s"    meta="2+ jogadores" onClick={createWhoIsWhoRoom}     color="#4a9eff" />
             <GameCard icon="⏱️" title="30 Segundos"    sub="CulturaGeral_MZ ou Global"   meta="2+ jogadores" onClick={create30sRoom}          color="#7c5dfa" />
-            <GameCard icon="🧩" title="Sporcle MZ"     sub="Quiz cronometrado · 3 temas" meta="2+ jogadores" onClick={createSporcleMZRoom}    color="#f97316" />
+            <GameCard icon="🧩" title="Sporcle MZ"     sub="Quiz cronometrado · 3 temas" meta="2+ jogadores" onClick={createSporcleMZRoom}    color="#f97316" isNew />
           </div>
         </section>
       </div><Overlays /></div>
@@ -1156,7 +1158,7 @@ export default function App() {
             <GameCard icon="🕵️" title="Quem Está a Mentir?" sub="Deduções · tensão · 5–10 min" onClick={() => goOffline("imposter", null)} color="#00D4B4" />
             <GameCard icon="🎭" title="Quem Sou Eu?"        sub="Adivinha com dicas"           onClick={() => goOffline("who","whoIsWho")} color="#4a9eff" />
             <GameCard icon="⏱️" title="30 Segundos"         sub="CulturaGeral_MZ ou Global · 30s" onClick={() => goOffline("30s","thirtySeconds")} color="#7c5dfa" />
-            <GameCard icon="🧩" title="Sporcle MZ"          sub="Quiz cronometrado · Solo"     onClick={() => goOffline("sporcle", null)} color="#f97316" />
+            <GameCard icon="🧩" title="Sporcle MZ"          sub="Quiz cronometrado · Solo"     onClick={() => goOffline("sporcle", null)} color="#f97316" isNew />
             <GameCard icon="🙈" title="Nunca Nunca"         sub="Confissões · quem fez o quê?" comingSoon />
             <GameCard icon="🍺" title="Faz ou Bebe"         sub="Desafios · Suave / Médio / 🔞" comingSoon />
           </div>
