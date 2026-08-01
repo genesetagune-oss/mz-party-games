@@ -137,26 +137,101 @@ function NamePill({ name, setName }) {
   );
 }
 
-function GameCard({ icon, title, sub, onClick, badge, color, comingSoon }) {
+// Shared nav bar for menu screens: subtle icon-only back on the left, title
+// in the middle, optional status pill on the right. Replaces the old three-
+// line ".topHero" (which repeated title / subtitle / status stacked).
+function NavBar({ onBack, title, subtitle, rightHint, rightDotColor }) {
   return (
-    <button onClick={comingSoon ? undefined : onClick} type="button" className="gameCard"
+    <header style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      gap: 8, marginBottom: 14, minHeight: 44,
+    }}>
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Voltar"
+        style={{
+          width: 40, height: 40, borderRadius: 999,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "transparent", border: "none",
+          color: "rgba(234,236,244,0.72)", fontSize: 22, fontWeight: 700,
+          cursor: "pointer", padding: 0, flexShrink: 0,
+        }}
+      >
+        ‹
+      </button>
+      <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+        <div style={{
+          fontSize: 17, fontWeight: 800, letterSpacing: -0.1,
+          color: "#fff", lineHeight: 1.1,
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>
+          {title}
+        </div>
+        {subtitle && (
+          <div style={{ fontSize: 11, opacity: 0.5, marginTop: 2, fontWeight: 600 }}>
+            {subtitle}
+          </div>
+        )}
+      </div>
+      {rightHint ? (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "5px 10px", borderRadius: 999,
+          background: "rgba(255,255,255,0.05)",
+          border: `1px solid ${rightDotColor || "#00C9A7"}33`,
+          fontSize: 10, fontWeight: 700, color: "rgba(234,236,244,0.75)",
+          flexShrink: 0,
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: rightDotColor || "#00C9A7", boxShadow: `0 0 6px ${rightDotColor || "#00C9A7"}` }} />
+          {rightHint}
+        </div>
+      ) : (
+        <div style={{ width: 40, flexShrink: 0 }} /> /* symmetric spacer so title stays centred */
+      )}
+    </header>
+  );
+}
+
+// Card is the full tap target — no inner button, no coloured badge for
+// generic "2+ jogadores" noise. Meta (players + game type) flows into the
+// subtitle line so the visual weight stays on the game name itself.
+function GameCard({ icon, title, sub, onClick, meta, isNew, color, comingSoon }) {
+  const accent = color || "#7c5dfa";
+  return (
+    <button
+      onClick={comingSoon ? undefined : onClick}
+      type="button"
+      className="gameCard"
       disabled={comingSoon}
-      style={comingSoon ? { opacity: 0.5, cursor: "default" } : undefined}>
+      style={comingSoon ? { opacity: 0.5, cursor: "default" } : undefined}
+    >
+      {isNew && !comingSoon && (
+        <span style={{
+          position: "absolute", top: 8, right: 10,
+          fontSize: 9, fontWeight: 950, letterSpacing: ".12em",
+          padding: "3px 8px", borderRadius: 999,
+          background: "linear-gradient(135deg,#00D4B4,#7c5dfa)",
+          color: "#fff", textTransform: "uppercase",
+          boxShadow: "0 2px 8px rgba(0,212,180,0.35)",
+        }}>NOVO</span>
+      )}
       <div className="gameCardInfo">
         <div className="gameCardTitle">
           <span>{icon}</span><span>{title}</span>
-          {badge && (
-            <span style={{
-              fontSize: 10, fontWeight: 900, letterSpacing: .5, padding: "3px 8px",
-              borderRadius: 999, background: `${color||"#7c5dfa"}22`,
-              border: `1px solid ${color||"#7c5dfa"}44`, color: color||"#7c5dfa", textTransform: "uppercase",
-            }}>{badge}</span>
-          )}
         </div>
-        <div className="gameCardSub">{comingSoon ? "Em breve…" : sub}</div>
+        <div className="gameCardSub">
+          {comingSoon
+            ? "Em breve…"
+            : (meta ? `${sub} · ${meta}` : sub)}
+        </div>
       </div>
-      <div className="gameCardBtn" style={comingSoon ? { opacity: 0.5, fontSize: 11 } : undefined}>
-        {comingSoon ? "Em breve" : "Jogar"}
+      <div className="gameCardChev" aria-hidden="true" style={{
+        color: comingSoon ? "rgba(234,236,244,0.25)" : accent,
+        fontSize: 22, fontWeight: 900, flexShrink: 0, paddingRight: 4,
+        transition: "transform 160ms ease",
+      }}>
+        {comingSoon ? "…" : "›"}
       </div>
     </button>
   );
@@ -1037,21 +1112,14 @@ export default function App() {
   if (view === "HOST") {
     return (
       <div className="appBg"><div className="shell">
-        <header className="topHero">
-          <button onClick={() => setView("HOME")} className="btnGhost" type="button"
-            style={{ marginBottom: 12, padding: "6px 12px", fontSize: 13 }}>
-            ← Voltar
-          </button>
-          <div className="brandTitle">Criar Sala</div>
-          <div className="brandSub">Escolhe o jogo e partilha o código</div>
-          <div className="statusDot" style={{"--dotColor": connected ? "#00e5b0" : "#c25151"}}>{connected ? "Conectado" : "Desconectado"}</div>
-        </header>
+        <NavBar title="Criar sala" onBack={() => setView("HOME")} rightHint={connected ? "online" : "offline"} rightDotColor={connected ? "#00C9A7" : "#c25151"} />
         <section className="panel">
           <div style={{display:"grid",gap:10}}>
-            <GameCard icon="⏱️" title="30 Segundos"      sub="CulturaGeral_MZ ou Global"    onClick={create30sRoom}          badge="2+ jogadores" color="#7c5dfa" />
-            <GameCard icon="🎭" title="Quem Sou Eu?"     sub="Adivinha com dicas · 90s"     onClick={createWhoIsWhoRoom}     badge="2+ jogadores" color="#4a9eff" />
-            <GameCard icon="🕵️" title="Agente Secreto"   sub="Bluff · encontra o impostor"  onClick={createAgenteSecretoRoom} badge="3+ jogadores" color="#00D4B4" />
-            <GameCard icon="🧩" title="Sporcle MZ"       sub="Quiz cronometrado · 3 temas"  onClick={createSporcleMZRoom}    badge="2+ jogadores" color="#7c5dfa" />
+            {/* Party games first (social intent), then quiz. New game highlighted. */}
+            <GameCard icon="🕵️" title="Agente Secreto" sub="Bluff · encontra o impostor" meta="3+ jogadores" onClick={createAgenteSecretoRoom} isNew color="#00D4B4" />
+            <GameCard icon="🎭" title="Quem Sou Eu?"   sub="Adivinha com dicas · 90s"    meta="2+ jogadores" onClick={createWhoIsWhoRoom}     color="#4a9eff" />
+            <GameCard icon="⏱️" title="30 Segundos"    sub="CulturaGeral_MZ ou Global"   meta="2+ jogadores" onClick={create30sRoom}          color="#7c5dfa" />
+            <GameCard icon="🧩" title="Sporcle MZ"     sub="Quiz cronometrado · 3 temas" meta="2+ jogadores" onClick={createSporcleMZRoom}    color="#f97316" />
           </div>
         </section>
       </div><Overlays /></div>
@@ -1061,14 +1129,7 @@ export default function App() {
   if (view === "JOIN") {
     return (
       <div className="appBg"><div className="shell">
-        <header className="topHero">
-          <button onClick={() => setView("HOME")} className="btnGhost" type="button"
-            style={{ marginBottom: 12, padding: "6px 12px", fontSize: 13 }}>
-            ← Voltar
-          </button>
-          <div className="brandTitle">Entrar numa Sala</div>
-          <div className="brandSub">Cola o código que te enviaram</div>
-        </header>
+        <NavBar title="Entrar numa sala" subtitle="Cola o código que te enviaram" onBack={() => setView("HOME")} />
         <section className="panel">
           <div style={{display:"grid",gap:12}}>
             <div>
@@ -1089,22 +1150,15 @@ export default function App() {
     const goOffline = (game, gt) => { if (gt) showRulesFor(gt, () => { setOfflineGame(game); setView("OFFLINE_GAME"); }); else { setOfflineGame(game); setView("OFFLINE_GAME"); } };
     return (
       <div className="appBg"><div className="shell">
-        <header className="topHero">
-          <button onClick={() => setView("HOME")} className="btnGhost" type="button"
-            style={{ marginBottom: 12, padding: "6px 12px", fontSize: 13 }}>
-            ← Voltar
-          </button>
-          <div className="brandTitle">Jogos offline</div>
-          <div className="brandSub">No mesmo dispositivo</div>
-        </header>
+        <NavBar title="Jogos offline" subtitle="No mesmo dispositivo" onBack={() => setView("HOME")} />
         <section className="panel">
           <div style={{display:"grid",gap:10}}>
-            <GameCard icon="⏱️" title="30 Segundos"          sub="CulturaGeral_MZ ou Global · 30s" onClick={() => goOffline("30s","thirtySeconds")} />
-            <GameCard icon="🎭" title="Quem Sou Eu?"         sub="Adivinha com dicas"               onClick={() => goOffline("who","whoIsWho")} />
-            <GameCard icon="🕵️" title="Quem Está a Mentir?"  sub="Deduções · tensão · 5–10 min"    onClick={() => goOffline("imposter", null)} />
-            <GameCard icon="🧩" title="Sporcle MZ"  sub="Quiz cronometrado · Solo"         onClick={() => goOffline("sporcle", null)} />
-            <GameCard icon="🙈" title="Nunca Nunca"  sub="Confissões · quem fez o quê?"   comingSoon />
-            <GameCard icon="🍺" title="Faz ou Bebe" sub="Desafios · Suave / Médio / 🔞" comingSoon />
+            <GameCard icon="🕵️" title="Quem Está a Mentir?" sub="Deduções · tensão · 5–10 min" onClick={() => goOffline("imposter", null)} color="#00D4B4" />
+            <GameCard icon="🎭" title="Quem Sou Eu?"        sub="Adivinha com dicas"           onClick={() => goOffline("who","whoIsWho")} color="#4a9eff" />
+            <GameCard icon="⏱️" title="30 Segundos"         sub="CulturaGeral_MZ ou Global · 30s" onClick={() => goOffline("30s","thirtySeconds")} color="#7c5dfa" />
+            <GameCard icon="🧩" title="Sporcle MZ"          sub="Quiz cronometrado · Solo"     onClick={() => goOffline("sporcle", null)} color="#f97316" />
+            <GameCard icon="🙈" title="Nunca Nunca"         sub="Confissões · quem fez o quê?" comingSoon />
+            <GameCard icon="🍺" title="Faz ou Bebe"         sub="Desafios · Suave / Médio / 🔞" comingSoon />
           </div>
         </section>
       </div><Overlays /></div>

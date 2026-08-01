@@ -160,14 +160,10 @@ body {
 .gameCardInfo { min-width: 0; position: relative; }
 .gameCardTitle { font-size: 17px; font-weight: 900; letter-spacing: -.1px; display: flex; align-items: center; gap: 9px; }
 .gameCardSub   { margin-top: 3px; font-size: 12px; color: var(--muted); font-weight: 600; }
-.gameCardBtn   {
-  flex: 0 0 auto; padding: 9px 16px; border-radius: 999px; font-weight: 900;
-  font-size: 13px; border: 0; background: var(--grad); color: rgba(6,7,13,.92);
-  box-shadow: 0 4px 18px var(--p1-glow);
-  transition: filter .12s ease, transform .12s ease;
-}
-.gameCardBtn:hover  { filter: brightness(1.06); }
-.gameCardBtn:active { transform: scale(.97); }
+/* Card chev — subtle right affordance to signal "tap the whole card". */
+.gameCardChev { transition: transform .16s ease; }
+.gameCard:hover  .gameCardChev { transform: translateX(2px); }
+.gameCard:active .gameCardChev { transform: translateX(4px); }
 
 /* ─────────────────────────────────────────────────────────
    BUTTONS — 4 estilos UNIFICADOS
