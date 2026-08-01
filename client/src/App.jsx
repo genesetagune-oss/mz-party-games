@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORIAS as CATEGORIAS_WHO } from "../games/quemSouEuDB.js";
 import { socket, clientId } from "./socket";
-import { playSound, setMuted, isMuted } from "./utils/sound";
+import { playSound } from "./utils/sound";
 import { track, trackAppOpened } from "./analytics";
 
 import ThirtySecondsOnline from "./games/ThirtySecondsOnline";
@@ -595,7 +595,6 @@ export default function App() {
   const [dontShowAgain,   setDontShowAgain]   = useState(false);
   const [rulesFor,        setRulesFor]        = useState(null);
   const [rulesCallback,   setRulesCallback]   = useState(null);
-  const [muted,           setMutedState]      = useState(() => localStorage.getItem("mzpg_muted") === "1");
   const [switchingGame,   setSwitchingGame]   = useState(false);
   const [guestWaiting,    setGuestWaiting]    = useState(false);
 
@@ -1039,6 +1038,10 @@ export default function App() {
     return (
       <div className="appBg"><div className="shell">
         <header className="topHero">
+          <button onClick={() => setView("HOME")} className="btnGhost" type="button"
+            style={{ marginBottom: 12, padding: "6px 12px", fontSize: 13 }}>
+            ← Voltar
+          </button>
           <div className="brandTitle">Criar Sala</div>
           <div className="brandSub">Escolhe o jogo e partilha o código</div>
           <div className="statusDot" style={{"--dotColor": connected ? "#00e5b0" : "#c25151"}}>{connected ? "Conectado" : "Desconectado"}</div>
@@ -1050,16 +1053,6 @@ export default function App() {
             <GameCard icon="🕵️" title="Agente Secreto"   sub="Bluff · encontra o impostor"  onClick={createAgenteSecretoRoom} badge="3+ jogadores" color="#00D4B4" />
             <GameCard icon="🧩" title="Sporcle MZ"       sub="Quiz cronometrado · 3 temas"  onClick={createSporcleMZRoom}    badge="2+ jogadores" color="#7c5dfa" />
           </div>
-          <button
-            type="button"
-            onClick={() => { const m = !muted; setMutedState(m); setMuted(m); localStorage.setItem("mzpg_muted", m ? "1" : "0"); }}
-            style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 16px", color:"rgba(234,236,244,0.7)", fontSize:14, fontWeight:700, cursor:"pointer", marginTop:8 }}
-          >
-            {muted ? "🔇 Som desligado" : "🔊 Som ligado"} · toca para alternar
-          </button>
-          <button onClick={() => setView("HOME")} className="btnBack" type="button" style={{marginTop:8,width:"100%",textAlign:"center"}}>
-            Voltar
-          </button>
         </section>
       </div><Overlays /></div>
     );
@@ -1069,6 +1062,10 @@ export default function App() {
     return (
       <div className="appBg"><div className="shell">
         <header className="topHero">
+          <button onClick={() => setView("HOME")} className="btnGhost" type="button"
+            style={{ marginBottom: 12, padding: "6px 12px", fontSize: 13 }}>
+            ← Voltar
+          </button>
           <div className="brandTitle">Entrar numa Sala</div>
           <div className="brandSub">Cola o código que te enviaram</div>
         </header>
@@ -1081,9 +1078,6 @@ export default function App() {
                 style={{letterSpacing:3,textTransform:"uppercase",fontSize:22,fontWeight:900,textAlign:"center"}} />
             </div>
             <button onClick={joinRoom} className="btnPrimary" type="button">Entrar na sala</button>
-            <button onClick={() => setView("HOME")} className="btnBack" type="button" style={{width:"100%",textAlign:"center"}}>
-              Voltar
-            </button>
             <div style={{fontSize:12,color:"rgba(234,236,244,.32)",textAlign:"center"}}>O app abre automaticamente o jogo do host.</div>
           </div>
         </section>
@@ -1096,6 +1090,10 @@ export default function App() {
     return (
       <div className="appBg"><div className="shell">
         <header className="topHero">
+          <button onClick={() => setView("HOME")} className="btnGhost" type="button"
+            style={{ marginBottom: 12, padding: "6px 12px", fontSize: 13 }}>
+            ← Voltar
+          </button>
           <div className="brandTitle">Jogos offline</div>
           <div className="brandSub">No mesmo dispositivo</div>
         </header>
@@ -1108,9 +1106,6 @@ export default function App() {
             <GameCard icon="🙈" title="Nunca Nunca"  sub="Confissões · quem fez o quê?"   comingSoon />
             <GameCard icon="🍺" title="Faz ou Bebe" sub="Desafios · Suave / Médio / 🔞" comingSoon />
           </div>
-          <button onClick={() => setView("HOME")} className="btnBack" type="button" style={{marginTop:16,width:"100%",textAlign:"center"}}>
-            Voltar
-          </button>
         </section>
       </div><Overlays /></div>
     );
