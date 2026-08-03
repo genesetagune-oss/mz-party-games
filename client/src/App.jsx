@@ -1263,14 +1263,28 @@ export default function App() {
             }}
           >⚙️</button>
 
-          {/* Status: silent when connected. Only shows a red "sem ligação"
-              pill when something's actually wrong worth reacting to. */}
-          {!connected && (
-            <div style={{ position:"absolute", top:16, right:16, display:"flex", alignItems:"center", gap:5, background:"rgba(0,0,0,0.30)", border:"1px solid rgba(194,81,81,0.35)", borderRadius:999, padding:"5px 10px 5px 8px", backdropFilter:"blur(8px)" }}>
-              <div style={{ width:6, height:6, borderRadius:"50%", background:"#c25151", boxShadow:"0 0 6px #c25151" }} />
-              <span style={{ fontSize:10, fontWeight:700, color:"rgba(194,81,81,0.9)", letterSpacing:"0.04em" }}>sem ligação</span>
-            </div>
-          )}
+          {/* Status pill — always visible on HOME as a heartbeat that the app
+              is talking to the server. Green online / red sem-ligação. */}
+          <div style={{
+            position:"absolute", top:16, right:16,
+            display:"flex", alignItems:"center", gap:5,
+            background:"rgba(0,0,0,0.30)",
+            border:`1px solid ${connected ? "rgba(0,201,167,0.35)" : "rgba(194,81,81,0.35)"}`,
+            borderRadius:999, padding:"5px 10px 5px 8px",
+            backdropFilter:"blur(8px)",
+          }}>
+            <div style={{
+              width:6, height:6, borderRadius:"50%",
+              background: connected ? "#00C9A7" : "#c25151",
+              boxShadow: `0 0 6px ${connected ? "#00C9A7" : "#c25151"}`,
+            }} />
+            <span style={{
+              fontSize:10, fontWeight:700, letterSpacing:"0.04em",
+              color: connected ? "rgba(0,201,167,0.9)" : "rgba(194,81,81,0.9)",
+            }}>
+              {connected ? "online" : "sem ligação"}
+            </span>
+          </div>{/* status pill */}
 
           <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:0, paddingTop:20 }}>
             <div style={{ fontWeight:800, letterSpacing:-1, lineHeight:0.95, textAlign:"center" }}>
