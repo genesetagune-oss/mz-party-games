@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
 import { impostorCount } from "../../games/agenteSecretoDB.js";
+import { playSound } from "../utils/sound";
 
 const PHASE_LABEL = {
   lobby:  "Lobby",
@@ -86,6 +87,17 @@ export default function AgenteSecretoOnline({ onBack, room, roomCode, gamePublic
 
   // Clear the clue draft whenever the round advances so the input isn't stale.
   useEffect(() => { setClueDraft(""); }, [phase]);
+
+  // Result chime — separate cue for group win vs impostors escaping.
+  // Skips other events (chat pops etc. left out on purpose to avoid noise).
+  useEffect(() => {
+    const handle = (evt) => {
+      if (evt?.type !== "RESULT") return;
+      playSound(evt.winner === "group" ? "win" : "lose");
+    };
+    socket.on("game:event", handle);
+    return () => socket.off("game:event", handle);
+  }, []);
 
   const leaveToMenu = () => { socket.emit("room:leave"); onBack?.(); };
   const startGame   = () => socket.emit("game:start");

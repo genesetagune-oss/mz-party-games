@@ -81,6 +81,47 @@ export function playSound(type) {
       g.gain.linearRampToValueAtTime(0.12, now + 0.02);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
       osc.start(now); osc.stop(now + 0.13);
+
+    } else if (type === "turn_end") {
+      // Two-note descending "time's up" — softer than wrong, cleaner than a buzz.
+      [[520, 0], [340, 0.11]].forEach(([freq, delay]) => {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, now + delay);
+        g.gain.linearRampToValueAtTime(0.16, now + delay + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.22);
+        osc.start(now + delay); osc.stop(now + delay + 0.25);
+      });
+
+    } else if (type === "phase") {
+      // Very subtle 1-note ping for phase transitions (reveal→clue→chat→vote).
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = 720;
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.08, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.start(now); osc.stop(now + 0.16);
+
+    } else if (type === "lose") {
+      // Descending minor-ish chord for defeats (impostor escaped, etc.).
+      [523, 415, 311].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const t = now + i * 0.12;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.14, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        osc.start(t); osc.stop(t + 0.32);
+      });
     }
   } catch {}
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
+import { playSound } from "../utils/sound";
 
 const DIFF_LABEL = { facil: "😌 Fácil", media: "🤔 Média", dificil: "🔥 Difícil" };
 const DIFF_DESC  = {
@@ -84,6 +85,8 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
         };
         setFeedback(msgs[evt.resultado] ?? null);
         if (evt.resultado === "acerto" || evt.resultado === "erro") setInput("");
+        if (evt.resultado === "acerto") playSound("correct");
+        else if (evt.resultado === "erro") playSound("wrong");
       }
     };
     socket.on("game:event", handle);

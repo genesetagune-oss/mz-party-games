@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "../socket";
+import { playSound } from "../utils/sound";
 
 export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic, gamePrivate, onSwitchGame }) {
   const me = room?.players?.find((p) => p.id === socket.id) || null;
@@ -67,6 +68,17 @@ export default function ThirtySecondsOnline({ onBack, room, roomCode, gamePublic
     } catch {}
   }
 
+
+  // Turn-end chime when the 30s runs out. Skips manual/host-ended turns so it
+  // only fires on real time-up moments.
+  useEffect(() => {
+    const handle = (evt) => {
+      if (evt?.type === "TURN_ENDED" && evt.reason === "TIME_UP") playSound("turn_end");
+      else if (evt?.type === "GAME_FINISHED") playSound("win");
+    };
+    socket.on("game:event", handle);
+    return () => socket.off("game:event", handle);
+  }, []);
 
   // =====================
   // ACTIONS
