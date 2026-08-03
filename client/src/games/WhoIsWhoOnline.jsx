@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { socket } from "../socket";
 import { CATEGORIAS } from "../../games/quemSouEuDB.js";
-import { playSound, setMuted, isMuted } from "../utils/sound";
-
-const LS_WIZ_SOUND = "mzpg_wiz_sound";
+import { playSound } from "../utils/sound";
 
 const TURN_OPTIONS = [
   { label: "Auto", value: null },
@@ -146,16 +144,8 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
   const [showSettings, setShowSettings] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [shareFeedback, setShareFeedback] = useState("");
-  // Per-device sound preference, opt-out (default ON). Not synced to other clients.
-  const [soundOn, setSoundOn] = useState(() => {
-    const v = localStorage.getItem(LS_WIZ_SOUND);
-    return v === null ? true : v === "1";
-  });
-  useEffect(() => {
-    localStorage.setItem(LS_WIZ_SOUND, soundOn ? "1" : "0");
-    setMuted(!soundOn);
-  }, [soundOn]);
-  useEffect(() => { setMuted(!soundOn); }, []); // apply on mount too
+  // Sound preference is now global (managed by App.jsx HOME ⚙️). This
+  // component just fires playSound() and trusts the shared mute state.
 
   function showFloat(msg) {
     setFloatMsg(msg);
@@ -326,6 +316,7 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                 title="Dica de letra"
                 desc="Aos 60s restantes, revela 1 letra em 3 slots (posição real, tamanho oculto)."
                 disabled={!isHost || !isLobby}
+                last
               >
                 <SwitchRow
                   on={letterHintEnabled}
@@ -333,20 +324,6 @@ export default function WhoIsWhoOnline({ onBack, room, roomCode, gamePublic, gam
                   onChange={setLetterHint}
                   onLabel="Activado"
                   offLabel="Desactivado"
-                />
-              </SettingSection>
-
-              {/* Sound (per device) */}
-              <SettingSection
-                title="Som"
-                desc="Toca um chime curto quando acertas. Só afecta este dispositivo."
-                last
-              >
-                <SwitchRow
-                  on={soundOn}
-                  onChange={setSoundOn}
-                  onLabel="Ligado"
-                  offLabel="Desligado"
                 />
               </SettingSection>
             </div>

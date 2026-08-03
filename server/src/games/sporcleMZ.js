@@ -113,6 +113,12 @@ export class SporcleMZEngine extends BaseEngine {
     this.qIdx      = 0;
     this.timeLeft  = 0;
 
+    // Host-toggled: default OFF for a simpler, faster loop. When true, the
+    // pre-question wager phase runs and scoring uses wager multipliers.
+    // When false, we skip straight to the question and score 1 pt per
+    // correct short answer / 1 pt per correct list item (classic Sporcle).
+    this.wagerMode = false;
+
     // wager system
     this.wagersUsed  = new Map(); // playerId/teamId → number[]
     this.wagerThis   = new Map(); // playerId/teamId → number | null
@@ -256,6 +262,16 @@ export class SporcleMZEngine extends BaseEngine {
     }
   }
 
+  setSettings(socketId, settings = {}) {
+    const me = this.room.players.get(socketId);
+    if (!me?.isHost) return this.emitError(socketId, "HOST_ONLY");
+    if (this.phase !== "lobby") return this.emitError(socketId, "NOT_IN_LOBBY");
+    if (typeof settings.wagerMode === "boolean") {
+      this.wagerMode = settings.wagerMode;
+    }
+    this.emitState();
+  }
+
   startGame(socketId) {
     const me = this.room.players.get(socketId);
     if (!me?.isHost || this.phase !== "lobby") return;
@@ -268,7 +284,9 @@ export class SporcleMZEngine extends BaseEngine {
     this.wagerResults  = {};
     this._initScores();
     this._initWagers();
-    this._startWager();
+    // Wager mode OFF → skip the pre-question wager phase entirely.
+    if (this.wagerMode) this._startWager();
+    else this._startQuestion();
   }
 
   _startWager() {
@@ -345,7 +363,10 @@ export class SporcleMZEngine extends BaseEngine {
     this.isFinalRound = true;
     this.emitState();
 
-    this._setTimeout(() => this._startFinalWager(), 2000);
+    this._setTimeout(() => {
+      if (this.wagerMode) this._startFinalWager();
+      else { this.isFinalRound = true; this._startQuestion(); }
+    }, 2000);
   }
 
   _startQuestion() {
@@ -381,33 +402,41 @@ export class SporcleMZEngine extends BaseEngine {
 
     if (q.tipo === "resposta_curta") {
       for (const [id] of this.scores) {
-        const wager = this.wagerThis.get(id) ?? 1;
         const correct = this.answeredShort.has(id);
-        this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
-        if (!this.isFinalRound) {
-          const used = this.wagersUsed.get(id) || [];
-          this.wagersUsed.set(id, [...used, wager]);
+        if (this.wagerMode) {
+          // Wager mode: correct = +wager, wrong = -wager.
+          const wager = this.wagerThis.get(id) ?? 1;
+          this.scores.set(id, (this.scores.get(id) || 0) + (correct ? wager : -wager));
+          if (!this.isFinalRound) {
+            const used = this.wagersUsed.get(id) || [];
+            this.wagersUsed.set(id, [...used, wager]);
+          }
+        } else {
+          // Classic Sporcle: correct = +1, wrong = 0 (no penalty).
+          if (correct) this.scores.set(id, (this.scores.get(id) || 0) + 1);
         }
       }
     } else {
-      // Proportional payout: points = wager * (correct / required).
-      // Full completion = full wager; partial pays proportionally; 0 correct = 0.
       for (const [id, acertadas] of this.playerAnswers) {
-        const wager = this.wagerThis.get(id) ?? 1;
-        const total = q.total ?? q.respostas_aceites.length;
-        const payout = total > 0
-          ? Math.round(wager * (acertadas.size / total))
-          : 0;
-        this.scores.set(id, (this.scores.get(id) || 0) + payout);
-        if (!this.isFinalRound) {
-          const used = this.wagersUsed.get(id) || [];
-          this.wagersUsed.set(id, [...used, wager]);
+        if (this.wagerMode) {
+          // Proportional payout: points = wager * (correct / required).
+          const wager = this.wagerThis.get(id) ?? 1;
+          const total = q.total ?? q.respostas_aceites.length;
+          const payout = total > 0 ? Math.round(wager * (acertadas.size / total)) : 0;
+          this.scores.set(id, (this.scores.get(id) || 0) + payout);
+          if (!this.isFinalRound) {
+            const used = this.wagersUsed.get(id) || [];
+            this.wagersUsed.set(id, [...used, wager]);
+          }
+        } else {
+          // Classic Sporcle: 1 point per correct answer named.
+          this.scores.set(id, (this.scores.get(id) || 0) + acertadas.size);
         }
       }
     }
     for (const [id] of this.scores) {
       this.wagerResults[id] = {
-        wager: this.wagerThis.get(id) ?? null,
+        wager: this.wagerMode ? (this.wagerThis.get(id) ?? null) : null,
         delta: (this.scores.get(id) || 0) - (prevScores.get(id) || 0),
       };
     }
@@ -585,6 +614,7 @@ export class SporcleMZEngine extends BaseEngine {
 
     return {
       phase:          this.phase,
+      wagerMode:      this.wagerMode,
       qIdx:           this.qIdx,
       totalQ:         TOTAL_ROUNDS,
       timeLeft:       this.timeLeft,

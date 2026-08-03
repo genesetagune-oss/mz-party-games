@@ -42,9 +42,11 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
   const myWager       = gamePrivate?.myWager       ?? null;
   const myWagersUsed  = gamePrivate?.myWagersUsed  ?? [];
   const myVote        = gamePrivate?.myVote        ?? null;
+  const wagerMode     = !!gamePublic?.wagerMode;
 
   const [input, setInput]       = useState("");
   const [feedback, setFeedback] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
   const inputRef = useRef(null);
   const fbTimRef = useRef(null);
 
@@ -118,10 +120,66 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
                 Sala: <b>{roomCode}</b> · {playerCount} jogador{playerCount !== 1 ? "es" : ""}
               </div>
             </div>
-            <div className="timerPill">🧩</div>
+            <button onClick={() => setShowSettings(s => !s)} type="button"
+              style={{ background: showSettings ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.08)", border: `1px solid ${showSettings ? "rgba(99,102,241,0.6)" : "rgba(255,255,255,0.13)"}`, borderRadius: 10, padding: "6px 10px", color: "#fff", fontSize: 16, cursor: "pointer" }}>
+              ⚙️
+            </button>
           </header>
 
           <main className="gameMain" style={{ gap: 14 }}>
+            {showSettings && (
+              <div style={{
+                background: "linear-gradient(180deg, rgba(20,22,36,0.94) 0%, rgba(14,16,28,0.94) 100%)",
+                border: "1px solid rgba(124,93,250,0.28)",
+                borderRadius: 18, padding: "16px 16px 14px", marginBottom: 4,
+                boxShadow: "0 12px 34px rgba(0,0,0,0.35)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ fontSize: 22 }}>⚙️</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 900, fontSize: 15 }}>Definições</div>
+                    <div style={{ fontSize: 11, opacity: 0.5, fontWeight: 600 }}>
+                      {isHost ? "Configura a partida" : "O host controla estas definições"}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ opacity: (!isHost) ? 0.6 : 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13.5, marginBottom: 4 }}>Modo apostas</div>
+                  <div style={{ fontSize: 11.5, opacity: 0.55, marginBottom: 10, lineHeight: 1.45 }}>
+                    Aposta pontos antes de cada pergunta. Certo = ganhas a aposta · errado = perdes.
+                    Sem apostas, cada resposta certa vale 1 ponto.
+                  </div>
+                  <label style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 12, padding: "8px 12px",
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 12, cursor: isHost ? "pointer" : "not-allowed",
+                  }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: wagerMode ? "#fff" : "rgba(234,236,244,0.6)" }}>
+                      {wagerMode ? "Activado" : "Desactivado"}
+                    </span>
+                    <span
+                      role="switch" aria-checked={wagerMode}
+                      onClick={(e) => { e.preventDefault(); if (isHost) socket.emit("game:setSettings", { wagerMode: !wagerMode }); }}
+                      style={{
+                        position: "relative", width: 44, height: 24, borderRadius: 999,
+                        background: wagerMode ? "linear-gradient(135deg,#00D4B4,#7c5dfa)" : "rgba(255,255,255,0.12)",
+                        border: `1px solid ${wagerMode ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)"}`,
+                        transition: "background 180ms ease",
+                      }}
+                    >
+                      <span style={{
+                        position: "absolute", top: 2, left: wagerMode ? 22 : 2,
+                        width: 18, height: 18, borderRadius: "50%",
+                        background: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                        transition: "left 180ms ease",
+                      }} />
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
             <button className="lobbyCodeCard" onClick={handleShare} type="button">
               <div className="lobbyCodeLabel">{shareFeedback || "SHARE CODE"}</div>
               <div className="lobbyCodeRow">

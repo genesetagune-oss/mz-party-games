@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORIAS as CATEGORIAS_WHO } from "../games/quemSouEuDB.js";
 import { socket, clientId } from "./socket";
-import { playSound } from "./utils/sound";
+import { playSound, setMuted } from "./utils/sound";
 import { track, trackAppOpened } from "./analytics";
 
 import ThirtySecondsOnline from "./games/ThirtySecondsOnline";
@@ -249,6 +249,83 @@ function GameCard({ icon, title, sub, onClick, meta, isNew, color, comingSoon })
         {comingSoon ? "Em breve" : (<>Jogar <span style={{ fontSize: 18, fontWeight: 800 }}>›</span></>)}
       </div>
     </button>
+  );
+}
+
+// Global settings — Nome + Som. Fires the name-edit overlay for the name row
+// (delegates to the existing NameOverlay) and toggles the shared mute state
+// directly for sound. Dismissible on backdrop or ✕.
+function GlobalSettingsOverlay({ name, soundOn, onEditName, onToggleSound, onClose }) {
+  return (
+    <div className="teamOverlay" onClick={onClose}>
+      <div className="teamCard" onClick={e => e.stopPropagation()} style={{ position: "relative", gap: 14 }}>
+        <button
+          type="button" onClick={onClose} aria-label="Fechar"
+          style={{
+            position: "absolute", top: 10, right: 10,
+            width: 32, height: 32, borderRadius: 999,
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+            color: "rgba(234,236,244,0.7)", fontSize: 16, fontWeight: 700,
+            cursor: "pointer", padding: 0, lineHeight: 1,
+          }}
+        >✕</button>
+        <div style={{ textAlign: "center" }}>
+          <div className="teamTitle">⚙️ Definições</div>
+          <div style={{ fontSize: 13, opacity: .55, marginTop: 4 }}>Preferências gerais</div>
+        </div>
+
+        {/* Row: Nome */}
+        <button type="button" onClick={onEditName}
+          style={{
+            display: "flex", alignItems: "center", gap: 12,
+            padding: "12px 14px",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12, cursor: "pointer",
+            color: "#fff", textAlign: "left",
+          }}>
+          <div style={{ fontSize: 22 }}>👤</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", opacity: 0.55 }}>Nome</div>
+            <div style={{ fontSize: 15, fontWeight: 800, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name || "—"}</div>
+          </div>
+          <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 18, fontWeight: 900 }}>›</span>
+        </button>
+
+        {/* Row: Som */}
+        <label style={{
+          display: "flex", alignItems: "center", gap: 12,
+          padding: "12px 14px",
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 12, cursor: "pointer",
+          color: "#fff",
+        }}>
+          <div style={{ fontSize: 22 }}>{soundOn ? "🔊" : "🔇"}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", opacity: 0.55 }}>Som</div>
+            <div style={{ fontSize: 12.5, marginTop: 2, opacity: 0.7 }}>Chimes curtos ao acertar / vencer.</div>
+          </div>
+          <span
+            role="switch" aria-checked={soundOn}
+            onClick={(e) => { e.preventDefault(); onToggleSound(); }}
+            style={{
+              position: "relative", width: 44, height: 24, borderRadius: 999,
+              background: soundOn ? "linear-gradient(135deg,#00D4B4,#7c5dfa)" : "rgba(255,255,255,0.12)",
+              border: `1px solid ${soundOn ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)"}`,
+              transition: "background 180ms ease", flexShrink: 0,
+            }}
+          >
+            <span style={{
+              position: "absolute", top: 2, left: soundOn ? 22 : 2,
+              width: 18, height: 18, borderRadius: "50%",
+              background: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+              transition: "left 180ms ease",
+            }} />
+          </span>
+        </label>
+      </div>
+    </div>
   );
 }
 
@@ -712,6 +789,16 @@ export default function App() {
     () => localStorage.getItem(LS_NAME_OK) !== "1"
   );
   const [showEditName, setShowEditName] = useState(false);
+  // Global settings panel opened from HOME ⚙️.
+  const [showGlobalSettings, setShowGlobalSettings] = useState(false);
+  // Sound preference lives here as the single source of truth. All games
+  // just call playSound() and it respects the shared mute state.
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem("mzpg_muted") !== "1");
+  useEffect(() => {
+    localStorage.setItem("mzpg_muted", soundOn ? "0" : "1");
+    setMuted(!soundOn);
+  }, [soundOn]);
+  useEffect(() => { setMuted(!soundOn); }, []); // apply on first mount
 
   const roomJoinedRef   = useRef(false);
   const gameStartedRef  = useRef(false);
@@ -1028,6 +1115,15 @@ export default function App() {
           onCancel={() => setShowEditName(false)}
         />
       )}
+      {showGlobalSettings && (
+        <GlobalSettingsOverlay
+          name={name}
+          soundOn={soundOn}
+          onEditName={() => { setShowGlobalSettings(false); setShowEditName(true); }}
+          onToggleSound={() => setSoundOn(v => !v)}
+          onClose={() => setShowGlobalSettings(false)}
+        />
+      )}
       {showNameOverlay && nameOverlayJoin && <NameOverlay mode="join" gameType={nameOverlayJoin.gameType} onConfirm={confirmNameAndJoin} onCancel={() => { setShowNameOverlay(false); setNameOverlayJoin(null); }} />}
       {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} initialName={name} />}
       {rulesFor  && <RulesModal gameType={rulesFor} context={rulesContext} onClose={closeRules} onPlay={rulesCallback ? confirmRules : null} primaryLabel={rulesContext === "offline" ? "Vamos jogar" : "Criar sala"} />}
@@ -1101,6 +1197,22 @@ export default function App() {
           ].map(({ e, s }, i) => (
             <div key={i} style={{ position:"absolute", pointerEvents:"none", animation:`floatMZ ${3.5 + i * 0.4}s ease-in-out infinite alternate`, ...s }}>{e}</div>
           ))}
+
+          {/* Global settings — accessible from HOME only. Source of truth
+              for Nome + Som. Games use these values via localStorage/setMuted. */}
+          <button
+            type="button"
+            aria-label="Definições"
+            onClick={() => setShowGlobalSettings(true)}
+            style={{
+              position:"absolute", top:14, left:14, zIndex:3,
+              width:38, height:38, borderRadius:999,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              background:"rgba(0,0,0,0.30)", border:"1px solid rgba(255,255,255,0.15)",
+              color:"#fff", fontSize:16, cursor:"pointer", padding:0,
+              backdropFilter:"blur(8px)",
+            }}
+          >⚙️</button>
 
           {/* Status: silent when connected. Only shows a red "sem ligação"
               pill when something's actually wrong worth reacting to. */}
