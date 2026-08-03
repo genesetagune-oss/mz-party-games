@@ -822,6 +822,16 @@ export default function App() {
   }, [soundOn]);
   useEffect(() => { setMuted(!soundOn); }, []); // apply on first mount
 
+  // Warm-up banner: only surfaces after 2s of being disconnected. Avoids a
+  // flicker on the normal fast path (< 1s to connect) and only warns the
+  // user during actual Render cold starts (~10s).
+  const [warmingUp, setWarmingUp] = useState(false);
+  useEffect(() => {
+    if (connected) { setWarmingUp(false); return; }
+    const id = setTimeout(() => setWarmingUp(true), 2000);
+    return () => clearTimeout(id);
+  }, [connected]);
+
   const roomJoinedRef   = useRef(false);
   const gameStartedRef  = useRef(false);
   const gameFinishedRef = useRef(false);
@@ -1108,6 +1118,23 @@ export default function App() {
 
   const Overlays = () => (
     <>
+      {/* Cold-start banner: only after 2s disconnected. Fixed to the bottom
+          so it never covers primary CTAs; hidden the moment we're back. */}
+      {warmingUp && (
+        <div style={{
+          position: "fixed", left: 12, right: 12, bottom: 14, zIndex: 1500,
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "12px 14px",
+          background: "linear-gradient(135deg,#F59E0B,#F97316)",
+          border: "1px solid rgba(255,255,255,0.28)",
+          borderRadius: 14, boxShadow: "0 8px 22px rgba(245,158,11,0.35)",
+          color: "#1a1300", fontWeight: 800, fontSize: 13,
+          pointerEvents: "none",
+        }}>
+          <span style={{ fontSize: 18 }}>⚡</span>
+          <span style={{ flex: 1 }}>A acordar o servidor… ~10s</span>
+        </div>
+      )}
       {notice    && <Notice title={notice.title} message={notice.message} dontShow={dontShowAgain} setDontShow={setDontShowAgain} onClose={closeNotice} />}
       {/* First-open blocking welcome — takes precedence over other name UIs.
           A deep-link name prompt subsumes it (it already collects the name in
@@ -1287,7 +1314,9 @@ export default function App() {
             a problem the user might want to know about (mid-session drop). */}
         <NavBar title="Criar sala" onBack={() => setView("HOME")} rightHint={connected ? null : "sem ligação"} rightDotColor="#c25151" />
         <section className="panel">
-          <div style={{display:"grid",gap:10}}>
+          {/* When offline the whole card list is dimmed + non-interactive so it
+              doesn't look broken when the user taps a card and nothing happens. */}
+          <div style={{ display: "grid", gap: 10, opacity: connected ? 1 : 0.55, pointerEvents: connected ? "auto" : "none" }}>
             {/* Party games first (social intent), then quiz. New game highlighted. */}
             <GameCard icon="🕵️" title="Agente Secreto" sub="Bluff · encontra o impostor" meta="3+ jogadores" onClick={createAgenteSecretoRoom} color="#00D4B4" />
             <GameCard icon="🎭" title="Quem Sou Eu?"   sub="Adivinha com dicas · 90s"    meta="2+ jogadores" onClick={createWhoIsWhoRoom}     color="#4a9eff" />
@@ -1311,7 +1340,11 @@ export default function App() {
                 placeholder="Ex: R3ABH2" className="niceInput"
                 style={{letterSpacing:3,textTransform:"uppercase",fontSize:22,fontWeight:900,textAlign:"center"}} />
             </div>
-            <button onClick={joinRoom} className="btnPrimary" type="button">Entrar na sala</button>
+            <button onClick={joinRoom} className="btnPrimary" type="button"
+              disabled={!connected}
+              style={{ opacity: connected ? 1 : 0.55, cursor: connected ? "pointer" : "not-allowed" }}>
+              Entrar na sala
+            </button>
             <div style={{fontSize:12,color:"rgba(234,236,244,.32)",textAlign:"center"}}>O app abre automaticamente o jogo do host.</div>
           </div>
         </section>

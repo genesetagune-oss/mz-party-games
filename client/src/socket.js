@@ -29,9 +29,17 @@ function ensureClientId() {
 
 export const clientId = ensureClientId();
 
+// Pre-warm the backend the moment the page loads. Render free tier sleeps
+// after 15 min idle and takes ~10-30s to wake. Firing this /health ping
+// during the app's own boot means the server is usually awake by the time
+// the user has typed their name and reached for "Criar sala".
+try { fetch(`${SERVER_URL}/health`, { cache: "no-store" }).catch(() => {}); } catch {}
+
 export const socket = io(SERVER_URL, {
   transports: ["websocket", "polling"],
   reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
 });
+
+export { SERVER_URL };
