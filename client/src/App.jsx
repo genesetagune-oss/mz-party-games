@@ -324,6 +324,28 @@ function GlobalSettingsOverlay({ name, soundOn, onEditName, onToggleSound, onClo
             }} />
           </span>
         </label>
+
+        {/* Feedback — grande, prominente. Abre o mail app com assunto pronto.
+            Anchor (not <button>) para que mailto funcione bem em iOS/Android. */}
+        <a
+          href="mailto:mzpartygames@gmail.com?subject=Feedback%20-%20MZ%20Party%20Games&body=Ol%C3%A1%21%0A%0A(escreve%20aqui%20a%20tua%20sugest%C3%A3o%2C%20bug%20ou%20ideia)%0A%0A"
+          style={{
+            display: "flex", alignItems: "center", gap: 12,
+            padding: "14px 16px", marginTop: 4,
+            background: "linear-gradient(135deg,#00D4B4,#7c5dfa)",
+            border: "1px solid rgba(255,255,255,0.22)",
+            borderRadius: 14, cursor: "pointer",
+            color: "#fff", textDecoration: "none",
+            boxShadow: "0 8px 22px rgba(0,212,180,0.28)",
+          }}
+        >
+          <div style={{ fontSize: 24 }}>💬</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 950 }}>Enviar feedback</div>
+            <div style={{ fontSize: 11.5, opacity: 0.9, marginTop: 2 }}>Sugestões, bugs, ideias — abre o mail</div>
+          </div>
+          <span style={{ fontSize: 22, fontWeight: 900 }}>›</span>
+        </a>
       </div>
     </div>
   );
