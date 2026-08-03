@@ -66,9 +66,8 @@ const GAME_META = {
     icon: "🧩", name: "Sporcle MZ", color: "#f97316", minPlayers: 2,
     rules: [
       "10 perguntas sobre Moçambique + 1 pergunta final.",
-      "Algumas pedem UMA resposta (ex: \"Qual é a capital?\").",
-      "Outras pedem VÁRIAS (ex: \"Nomeia 5 cidades da costa\").",
-      "Cada resposta certa vale 1 ponto. Sem penalização por erro.",
+      "Algumas pedem só uma resposta.",
+      "Outras pedem várias respostas.",
       "No fim, todos votam a dificuldade da pergunta final. Quem tiver mais pontos vence! 🏆",
     ],
   },
