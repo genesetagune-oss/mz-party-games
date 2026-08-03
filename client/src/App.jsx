@@ -43,13 +43,24 @@ const GAME_META = {
   },
   whoIsWho: {
     icon: "🎭", name: "Quem Sou Eu?", color: "#4a9eff", minPlayers: 2,
-    rules: [
-      "Cada jogador fica com o telemóvel na testa (ecrã virado para fora).",
-      "Os outros fazem perguntas de SIM/NÃO para adivinhar.",
-      "O jogador da vez confirma: ✅ Acertou ou ⏭ Passar.",
-      "Cada acerto vale 1 ponto. Tempo automático consoante nº de jogadores.",
-      "Primeiro a chegar a 10 pontos vence! 🏆",
-    ],
+    // Rules differ between contexts because the offline mode uses a single
+    // phone on the forehead, while online each player has their own screen.
+    rules: {
+      offline: [
+        "Cada jogador fica com o telemóvel na testa (ecrã virado para fora).",
+        "Os outros fazem perguntas de SIM/NÃO para adivinhar.",
+        "O jogador da vez confirma: ✅ Acertou ou ⏭ Passar.",
+        "Cada acerto vale 1 ponto. Tempo automático consoante nº de jogadores.",
+        "Primeiro a chegar a 10 pontos vence! 🏆",
+      ],
+      online: [
+        "Cada jogador tem o seu telemóvel — quem está a jogar NÃO vê a palavra.",
+        "Os outros vêem a palavra e respondem SIM/NÃO às perguntas do adivinho.",
+        "Quando alguém acertar, um dos outros carrega ✅ Acertou no telemóvel dele.",
+        "Cada acerto vale 1 ponto. A vez roda entre jogadores.",
+        "Primeiro a chegar a 10 pontos vence! 🏆",
+      ],
+    },
   },
   sporcleMZ: {
     icon: "🧩", name: "Sporcle MZ", color: "#7c5dfa", minPlayers: 2,
@@ -229,11 +240,13 @@ function GameCard({ icon, title, sub, onClick, meta, isNew, color, comingSoon })
         </div>
       </div>
       <div className="gameCardChev" aria-hidden="true" style={{
-        color: comingSoon ? "rgba(234,236,244,0.25)" : accent,
-        fontSize: 22, fontWeight: 900, flexShrink: 0, paddingRight: 4,
+        color: comingSoon ? "rgba(234,236,244,0.35)" : accent,
+        fontSize: 13, fontWeight: 900, flexShrink: 0, paddingRight: 2,
+        letterSpacing: "0.02em",
+        display: "flex", alignItems: "center", gap: 4,
         transition: "transform 160ms ease",
       }}>
-        {comingSoon ? "…" : "›"}
+        {comingSoon ? "Em breve" : (<>Jogar <span style={{ fontSize: 18, fontWeight: 800 }}>›</span></>)}
       </div>
     </button>
   );
@@ -393,12 +406,30 @@ function GameSwitchOverlay({ onSwitch, onCancel, currentGame }) {
   );
 }
 
-function RulesModal({ gameType, onClose, onPlay }) {
+function RulesModal({ gameType, context = "online", onClose, onPlay, primaryLabel }) {
   const meta = GAME_META[gameType];
   if (!meta) return null;
+  // Rules can be an array (same for both contexts) or { online, offline }.
+  const rulesList = Array.isArray(meta.rules)
+    ? meta.rules
+    : (meta.rules?.[context] || meta.rules?.online || []);
   return (
     <div className="noticeOverlay" onClick={onClose}>
-      <div className="rulesCard" onClick={e => e.stopPropagation()}>
+      <div className="rulesCard" onClick={e => e.stopPropagation()} style={{ position: "relative" }}>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fechar"
+          style={{
+            position: "absolute", top: 10, right: 10,
+            width: 32, height: 32, borderRadius: 999,
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+            color: "rgba(234,236,244,0.7)", fontSize: 16, fontWeight: 700,
+            cursor: "pointer", padding: 0, lineHeight: 1,
+          }}
+        >
+          ✕
+        </button>
         <div className="rulesHeader">
           <span style={{fontSize:32}}>{meta.icon}</span>
           <div>
@@ -407,23 +438,18 @@ function RulesModal({ gameType, onClose, onPlay }) {
           </div>
         </div>
         <ol className="rulesList">
-          {meta.rules.map((r, i) => (
+          {rulesList.map((r, i) => (
             <li key={i} className="rulesItem">
               <span className="rulesNum">{i + 1}</span>
               <span>{r}</span>
             </li>
           ))}
         </ol>
-        <div style={{display:"grid", gap:10, marginTop:4}}>
-          {onPlay && (
-            <button onClick={onPlay} className="btnPrimary" type="button">
-              Criar sala
-            </button>
-          )}
-          <button onClick={onClose} className="btnBack" type="button" style={{width:"100%",textAlign:"center"}}>
-            {onPlay ? "Voltar" : "Fechar"}
+        {onPlay && (
+          <button onClick={onPlay} className="btnPrimary" type="button" style={{ marginTop: 4 }}>
+            {primaryLabel || "Vamos jogar"}
           </button>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -672,6 +698,7 @@ export default function App() {
   const [dontShowAgain,   setDontShowAgain]   = useState(false);
   const [rulesFor,        setRulesFor]        = useState(null);
   const [rulesCallback,   setRulesCallback]   = useState(null);
+  const [rulesContext,    setRulesContext]    = useState("online"); // "online" | "offline"
   const [switchingGame,   setSwitchingGame]   = useState(false);
   const [guestWaiting,    setGuestWaiting]    = useState(false);
 
@@ -871,24 +898,29 @@ export default function App() {
   };
 
   // ✅ NOVO: Mostra regras só 1ª vez (localStorage)
-  const showRulesFor = (gameType, onConfirm) => {
-    const seen = localStorage.getItem(LS_RULES_SEEN(gameType));
-    if (seen) {
-      // Se já viu, executa direto
-      onConfirm();
-      return;
-    }
-    // Primeira vez: mostra modal
+  // context: "online" | "offline" — decides which rules list is shown when a
+  // game has different flows (e.g. Quem Sou Eu: forehead offline vs per-phone
+  // online). The seen-flag is keyed per context so seeing offline rules
+  // doesn't skip the online explanation the first time and vice versa.
+  const showRulesFor = (gameType, onConfirm, context = "online") => {
+    const key = `${LS_RULES_SEEN(gameType)}_${context}`;
+    const seen = localStorage.getItem(key);
+    if (seen) { onConfirm(); return; }
+    setRulesContext(context);
     setRulesFor(gameType);
     setRulesCallback(() => {
-      localStorage.setItem(LS_RULES_SEEN(gameType), "true");
+      localStorage.setItem(key, "true");
       onConfirm();
     });
   };
 
   const closeRules   = () => { setRulesFor(null); setRulesCallback(null); };
   const confirmRules = () => { closeRules(); rulesCallback?.(); };
-  const openRulesOnly = (gameType) => { setRulesFor(gameType); setRulesCallback(null); };
+  const openRulesOnly = (gameType, context = "online") => {
+    setRulesContext(context);
+    setRulesFor(gameType);
+    setRulesCallback(null);
+  };
 
   const create30sRoom = () => {
     if (!connected) return showNotice("Servidor","Desconectado.");
@@ -998,7 +1030,7 @@ export default function App() {
       )}
       {showNameOverlay && nameOverlayJoin && <NameOverlay mode="join" gameType={nameOverlayJoin.gameType} onConfirm={confirmNameAndJoin} onCancel={() => { setShowNameOverlay(false); setNameOverlayJoin(null); }} />}
       {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} initialName={name} />}
-      {rulesFor  && <RulesModal gameType={rulesFor} onClose={closeRules} onPlay={confirmRules} />}
+      {rulesFor  && <RulesModal gameType={rulesFor} context={rulesContext} onClose={closeRules} onPlay={rulesCallback ? confirmRules : null} primaryLabel={rulesContext === "offline" ? "Vamos jogar" : "Criar sala"} />}
 {switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} currentGame={room?.gameType} />}
       {guestWaiting && (
         <div style={{ position:"fixed", inset:0, zIndex:2000, background:"rgba(7,9,15,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
@@ -1070,11 +1102,14 @@ export default function App() {
             <div key={i} style={{ position:"absolute", pointerEvents:"none", animation:`floatMZ ${3.5 + i * 0.4}s ease-in-out infinite alternate`, ...s }}>{e}</div>
           ))}
 
-          {/* status badge — canto superior direito */}
-          <div style={{ position:"absolute", top:16, right:16, display:"flex", alignItems:"center", gap:5, background:"rgba(0,0,0,0.30)", border:`1px solid ${connected ? "rgba(0,201,167,0.25)" : "rgba(194,81,81,0.25)"}`, borderRadius:999, padding:"5px 10px 5px 8px", backdropFilter:"blur(8px)" }}>
-            <div style={{ width:6, height:6, borderRadius:"50%", background: connected ? "#00C9A7" : "#c25151", boxShadow:`0 0 6px ${connected ? "#00C9A7" : "#c25151"}` }} />
-            <span style={{ fontSize:10, fontWeight:700, color: connected ? "rgba(0,201,167,0.85)" : "rgba(194,81,81,0.85)", letterSpacing:"0.04em" }}>{connected ? "Online" : "Offline"}</span>
-          </div>
+          {/* Status: silent when connected. Only shows a red "sem ligação"
+              pill when something's actually wrong worth reacting to. */}
+          {!connected && (
+            <div style={{ position:"absolute", top:16, right:16, display:"flex", alignItems:"center", gap:5, background:"rgba(0,0,0,0.30)", border:"1px solid rgba(194,81,81,0.35)", borderRadius:999, padding:"5px 10px 5px 8px", backdropFilter:"blur(8px)" }}>
+              <div style={{ width:6, height:6, borderRadius:"50%", background:"#c25151", boxShadow:"0 0 6px #c25151" }} />
+              <span style={{ fontSize:10, fontWeight:700, color:"rgba(194,81,81,0.9)", letterSpacing:"0.04em" }}>sem ligação</span>
+            </div>
+          )}
 
           <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:0, paddingTop:20 }}>
             <div style={{ fontWeight:800, letterSpacing:-1, lineHeight:0.95, textAlign:"center" }}>
@@ -1114,7 +1149,9 @@ export default function App() {
   if (view === "HOST") {
     return (
       <div className="appBg"><div className="shell">
-        <NavBar title="Criar sala" onBack={() => setView("HOME")} rightHint={connected ? "online" : "offline"} rightDotColor={connected ? "#00C9A7" : "#c25151"} />
+        {/* Status is silent when connected — only surfaces if there's actually
+            a problem the user might want to know about (mid-session drop). */}
+        <NavBar title="Criar sala" onBack={() => setView("HOME")} rightHint={connected ? null : "sem ligação"} rightDotColor="#c25151" />
         <section className="panel">
           <div style={{display:"grid",gap:10}}>
             {/* Party games first (social intent), then quiz. New game highlighted. */}
@@ -1149,7 +1186,7 @@ export default function App() {
   }
 
   if (view === "OFFLINE_MENU") {
-    const goOffline = (game, gt) => { if (gt) showRulesFor(gt, () => { setOfflineGame(game); setView("OFFLINE_GAME"); }); else { setOfflineGame(game); setView("OFFLINE_GAME"); } };
+    const goOffline = (game, gt) => { if (gt) showRulesFor(gt, () => { setOfflineGame(game); setView("OFFLINE_GAME"); }, "offline"); else { setOfflineGame(game); setView("OFFLINE_GAME"); } };
     return (
       <div className="appBg"><div className="shell">
         <NavBar title="Jogos offline" subtitle="No mesmo dispositivo" onBack={() => setView("HOME")} />
