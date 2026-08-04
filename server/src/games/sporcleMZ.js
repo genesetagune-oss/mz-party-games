@@ -138,6 +138,13 @@ const BANK = [
   { id:"d11", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama o campeonato nacional de futebol de Moçambique?", respostas_aceites:[["mocambola","moçambola","campeonato mocambola","liga mocambola","liga moçambola"]] },
   { id:"d12", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 clubes que já ganharam o Moçambola", respostas_aceites:[["costa do sol","gd costa do sol"],["ferroviario de maputo","ferroviário de maputo","ferroviario maputo"],["desportivo de maputo","desportivo maputo","gd desportivo"],["maxaquene","gd maxaquene"],["uniao desportiva do songo","união desportiva do songo","songo","ud songo"],["ferroviario da beira","ferroviário da beira","ferroviario beira"],["textafrica","textáfrica","textafrica do chimoio"],["black bulls","black bulls fc"]] },
   { id:"d13", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 jogadores moçambicanos com carreira em clubes europeus", respostas_aceites:[["eusebio","eusébio","pantera negra"],["tico tico","tico-tico","manuel bucuane","bucuane"],["simao mate","simão mate","simao mate junior"],["mexer","fernando sitoe"],["reinildo mandava","reinildo","mandava"],["geny catamo","catamo","geny"],["elias pelembe","pelembe"],["reginaldo faife","reginaldo"]] },
+
+  // ── TV / CINEMA ───────────────────────────────────────────
+  { id:"t01", tipo:"resposta_curta", tempo:15, pergunta:"Qual é o principal canal privado de TV de Moçambique?", respostas_aceites:[["stv","soico tv","soico"]] },
+  { id:"t02", tipo:"resposta_curta", tempo:15, pergunta:"Qual comediante/YouTuber tem hoje o maior canal em Moçambique?", respostas_aceites:[["maxh258","maxh","maxh 258","max 258"]] },
+  { id:"t03", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 canais de TV moçambicanos", respostas_aceites:[["stv","soico tv"],["tvm","televisao de mocambique","televisão de moçambique"],["miramar","tv miramar"],["tim","tv independente","tv independente de mocambique"],["tv sucesso"]] },
+  { id:"t04", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 apresentadores ou personalidades de TV moçambicanos", respostas_aceites:[["puto aires","aires"],["sergio ramos","sérgio ramos","sergio","sérgio"],["dygo boy","dygo"],["fred"],["neyma nacimo","neyma","nacimo"],["sara sittoe","sara"]] },
+  { id:"t05", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 comediantes moçambicanos populares", respostas_aceites:[["maxh258","maxh","maxh 258"],["mayra santos","mayra"],["noslen araujo","noslen araújo","noslen"],["wanaki"]] },
 ];
 
 function shuffle(arr) {
