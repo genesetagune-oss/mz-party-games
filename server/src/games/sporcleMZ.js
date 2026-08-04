@@ -154,6 +154,10 @@ const BANK = [
 
   // ── NATUREZA / FAUNA ──────────────────────────────────────
   { id:"n01", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 destinos famosos para mergulho em Moçambique", respostas_aceites:[["tofo","praia do tofo"],["bazaruto","arquipelago do bazaruto","arquipélago do bazaruto"],["quirimbas","arquipelago das quirimbas","arquipélago das quirimbas"],["inhaca","ilha da inhaca"],["vilanculos","vilankulo"],["pemba"]] },
+
+  // ── EVENTOS / FEIRAS ──────────────────────────────────────
+  { id:"e01", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama a maior feira internacional de negócios de Moçambique, realizada anualmente em Maputo?", respostas_aceites:[["facim","feira internacional de maputo","feira de maputo"]] },
+  { id:"e02", tipo:"lista", tempo:30, total:2, pergunta:"Nomeia 2 festivais ou prémios de música moçambicanos", respostas_aceites:[["ngoma","ngoma mocambique","ngoma moçambique","ngoma awards"],["kanimambo","kanimambo music awards","kanimambo awards"],["festival da marrabenta","festival de marrabenta","marrabenta festival"]] },
 ];
 
 function shuffle(arr) {
