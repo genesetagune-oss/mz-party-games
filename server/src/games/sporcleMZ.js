@@ -151,6 +151,9 @@ const BANK = [
   { id:"gm01", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama a bebida alcoólica caseira MZ, forte, feita de cana ou fruta fermentada?", respostas_aceites:[["tontonto","kachasu","aguardente caseira"]] },
   { id:"gm02", tipo:"lista", tempo:30, total:2, pergunta:"Nomeia 2 bebidas tradicionais moçambicanas (não cerveja)", respostas_aceites:[["maheu"],["tontonto","kachasu"],["sura"],["uputo"],["chibuku"]] },
   { id:"gm03", tipo:"lista", tempo:30, total:2, pergunta:"Nomeia 2 pratos moçambicanos com peixe ou marisco", respostas_aceites:[["caril de camarao","caril de camarão","caril camarao"],["lagosta grelhada","lagosta"],["matapa de siri-siri","matapa de siri siri","matapa siri siri"],["peixe a zambeziana","peixe à zambeziana","peixe zambeziana"],["cabidela de peixe","cabidela"],["lulas grelhadas","lulas"]] },
+
+  // ── NATUREZA / FAUNA ──────────────────────────────────────
+  { id:"n01", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 destinos famosos para mergulho em Moçambique", respostas_aceites:[["tofo","praia do tofo"],["bazaruto","arquipelago do bazaruto","arquipélago do bazaruto"],["quirimbas","arquipelago das quirimbas","arquipélago das quirimbas"],["inhaca","ilha da inhaca"],["vilanculos","vilankulo"],["pemba"]] },
 ];
 
 function shuffle(arr) {
