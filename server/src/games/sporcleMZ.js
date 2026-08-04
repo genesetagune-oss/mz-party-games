@@ -145,6 +145,7 @@ const BANK = [
   { id:"t03", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 canais de TV moçambicanos", respostas_aceites:[["stv","soico tv"],["tvm","televisao de mocambique","televisão de moçambique"],["miramar","tv miramar"],["tim","tv independente","tv independente de mocambique"],["tv sucesso"]] },
   { id:"t04", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 apresentadores ou personalidades de TV moçambicanos", respostas_aceites:[["puto aires","aires"],["sergio ramos","sérgio ramos","sergio","sérgio"],["dygo boy","dygo"],["fred"],["neyma nacimo","neyma","nacimo"],["sara sittoe","sara"]] },
   { id:"t05", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 comediantes moçambicanos populares", respostas_aceites:[["maxh258","maxh","maxh 258"],["mayra santos","mayra"],["noslen araujo","noslen araújo","noslen"],["wanaki"]] },
+  { id:"t06", tipo:"resposta_curta", tempo:15, pergunta:"Qual é o filme moçambicano dirigido por Alcy Caluamba?", respostas_aceites:[["caly"]] },
 ];
 
 function shuffle(arr) {
