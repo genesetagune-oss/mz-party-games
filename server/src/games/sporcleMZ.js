@@ -146,6 +146,11 @@ const BANK = [
   { id:"t04", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 apresentadores ou personalidades de TV moçambicanos", respostas_aceites:[["puto aires","aires"],["sergio ramos","sérgio ramos","sergio","sérgio"],["dygo boy","dygo"],["fred"],["neyma nacimo","neyma","nacimo"],["sara sittoe","sara"]] },
   { id:"t05", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 comediantes moçambicanos populares", respostas_aceites:[["maxh258","maxh","maxh 258"],["mayra santos","mayra"],["noslen araujo","noslen araújo","noslen"],["wanaki"]] },
   { id:"t06", tipo:"resposta_curta", tempo:15, pergunta:"Qual é o filme moçambicano dirigido por Alcy Caluamba?", respostas_aceites:[["caly"]] },
+
+  // ── GASTRONOMIA (extra) ───────────────────────────────────
+  { id:"gm01", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama a bebida alcoólica caseira MZ, forte, feita de cana ou fruta fermentada?", respostas_aceites:[["tontonto","kachasu","aguardente caseira"]] },
+  { id:"gm02", tipo:"lista", tempo:30, total:2, pergunta:"Nomeia 2 bebidas tradicionais moçambicanas (não cerveja)", respostas_aceites:[["maheu"],["tontonto","kachasu"],["sura"],["uputo"],["chibuku"]] },
+  { id:"gm03", tipo:"lista", tempo:30, total:2, pergunta:"Nomeia 2 pratos moçambicanos com peixe ou marisco", respostas_aceites:[["caril de camarao","caril de camarão","caril camarao"],["lagosta grelhada","lagosta"],["matapa de siri-siri","matapa de siri siri","matapa siri siri"],["peixe a zambeziana","peixe à zambeziana","peixe zambeziana"],["cabidela de peixe","cabidela"],["lulas grelhadas","lulas"]] },
 ];
 
 function shuffle(arr) {
