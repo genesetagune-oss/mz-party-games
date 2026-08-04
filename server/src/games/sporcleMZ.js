@@ -158,6 +158,11 @@ const BANK = [
   // ── EVENTOS / FEIRAS ──────────────────────────────────────
   { id:"e01", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama a maior feira internacional de negócios de Moçambique, realizada anualmente em Maputo?", respostas_aceites:[["facim","feira internacional de maputo","feira de maputo"]] },
   { id:"e02", tipo:"lista", tempo:30, total:2, pergunta:"Nomeia 2 festivais ou prémios de música moçambicanos", respostas_aceites:[["ngoma","ngoma mocambique","ngoma moçambique","ngoma awards"],["kanimambo","kanimambo music awards","kanimambo awards"],["festival da marrabenta","festival de marrabenta","marrabenta festival"]] },
+
+  // ── ECONOMIA / EMPRESAS ───────────────────────────────────
+  { id:"ec01", tipo:"resposta_curta", tempo:15, pergunta:"Como se chama a moeda oficial de Moçambique?", respostas_aceites:[["metical","meticais","mt"]] },
+  { id:"ec02", tipo:"lista", tempo:45, total:3, pergunta:"Nomeia 3 bancos comerciais em Moçambique", respostas_aceites:[["bim","millennium bim","banco internacional de mocambique"],["bci","banco comercial e de investimentos"],["standard bank"],["absa","absa bank","barclays"],["moza banco","moza"],["fnb","first national bank"]] },
+  { id:"ec03", tipo:"lista", tempo:30, total:2, pergunta:"Nomeia 2 operadoras de telecomunicações em Moçambique", respostas_aceites:[["vodacom","vodacom mocambique"],["movitel"],["tmcel","mcel","tdm"]] },
 ];
 
 function shuffle(arr) {
