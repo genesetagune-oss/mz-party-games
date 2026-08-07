@@ -1026,7 +1026,11 @@ export default function App() {
     if (seen) { onConfirm(); return; }
     setRulesContext(context);
     setRulesFor(gameType);
-    setRulesCallback(() => {
+    // React trata funções passadas ao setState como *updater functions*: chama-as
+    // com o valor anterior e usa o retorno como novo estado. Para guardar UMA
+    // função como estado, tenho de a envolver noutra função — a exterior é
+    // executada pelo React e devolve a interior, que é o callback real.
+    setRulesCallback(() => () => {
       localStorage.setItem(key, "true");
       onConfirm();
     });
@@ -1174,7 +1178,9 @@ export default function App() {
       )}
       {showNameOverlay && nameOverlayJoin && <NameOverlay mode="join" gameType={nameOverlayJoin.gameType} onConfirm={confirmNameAndJoin} onCancel={() => { setShowNameOverlay(false); setNameOverlayJoin(null); }} />}
       {showTeamOverlay && <TeamOverlay mode={overlayMode} onConfirm={confirmTeam} onCancel={cancelOverlay} initialName={name} />}
-      {rulesFor  && <RulesModal gameType={rulesFor} context={rulesContext} onClose={closeRules} onPlay={rulesCallback ? confirmRules : null} primaryLabel={rulesContext === "offline" ? "Vamos jogar" : "Criar sala"} />}
+      {/* Label neutra "Vamos jogar" — o modal não sabe se o utilizador está a criar
+          ou a entrar numa sala, e "Criar sala" era enganador em joins. */}
+      {rulesFor  && <RulesModal gameType={rulesFor} context={rulesContext} onClose={closeRules} onPlay={rulesCallback ? confirmRules : null} primaryLabel="Vamos jogar" />}
 {switchingGame && <GameSwitchOverlay onSwitch={handleSwitchGame} onCancel={() => setSwitchingGame(false)} currentGame={room?.gameType} />}
       {guestWaiting && (
         <div style={{ position:"fixed", inset:0, zIndex:2000, background:"rgba(7,9,15,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
