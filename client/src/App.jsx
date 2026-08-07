@@ -1074,15 +1074,20 @@ export default function App() {
     socket.emit("room:preview", { roomCode: code }, (res) => {
       if (!res?.ok) { setLoading(null); showNotice("Join","Sala não encontrada."); return; }
       const gt = res.gameType;
+      // Se o modal de regras vai aparecer, tiramos o spinner "verificar" para
+      // não o cobrir. Se as regras já foram vistas, mantemos o spinner até
+      // a re-render trocar para "A entrar na sala…" dentro do callback.
+      const rulesSeen = !!localStorage.getItem(`${LS_RULES_SEEN(gt)}_online`);
+      if (!rulesSeen) setLoading(null);
       showRulesFor(gt, () => {
         if (gt !== "thirtySeconds") {
           localStorage.setItem(LS_NAME_OK, "1");
+          setLoading("A entrar na sala…");
           socket.emit("room:join",{roomCode:code,name:playerName,team:"A",clientId});
           return;
         }
         setPendingJoinCode(code); setOverlayMode("JOIN"); setShowTeamOverlay(true);
       });
-      setLoading(null);
     });
   };
 
