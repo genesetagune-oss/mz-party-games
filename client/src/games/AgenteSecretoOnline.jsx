@@ -588,33 +588,49 @@ function LiftCard({ card, lifted, onDown, onUp, big, small }) {
 function CardFront({ card, big, small }) {
   const isImpostor = card.role === "impostor";
   if (isImpostor) {
+    // Formato inspirado nas apps: título "Impostor" em vermelho + hint entre
+    // aspas ("Dica: 'X'"). Uma só palavra evocativa em vez de categoria.
     return (
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: big ? 14 : 12, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#ef4444", opacity: 0.95, marginBottom: 8 }}>
-          🕵️ És o impostor
+        <div style={{
+          fontSize: big ? 22 : small ? 13 : 18,
+          fontWeight: 950, letterSpacing: 0.4,
+          color: "#ef4444", marginBottom: 10, lineHeight: 1,
+        }}>
+          🕵️ IMPOSTOR
         </div>
         {card.hint ? (
-          <div style={{ fontSize: big ? 32 : small ? 16 : 24, fontWeight: 950, color: "#fff", letterSpacing: -0.3 }}>
-            {card.hint}
-          </div>
+          <>
+            <div style={{ fontSize: big ? 13 : 11, fontWeight: 700, opacity: 0.7, color: "#fff", letterSpacing: 0.3, marginBottom: 4 }}>
+              A tua dica:
+            </div>
+            <div style={{
+              fontSize: big ? "clamp(28px, 7.5vw, 44px)" : small ? 16 : 24,
+              fontWeight: 950, color: "#fff",
+              letterSpacing: -0.3, lineHeight: 1.05,
+            }}>
+              "{card.hint}"
+            </div>
+          </>
         ) : (
           <div style={{ fontSize: big ? 14 : 12, opacity: 0.75, color: "#fff" }}>
             Boa sorte a bluffar.
           </div>
         )}
-        <div style={{ fontSize: 11, opacity: 0.55, marginTop: 10, color: "#fff" }}>
-          Encaixa nas dicas dos outros sem denunciares.
-        </div>
       </div>
     );
   }
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: big ? 12 : 10, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", opacity: 0.55, color: "#fff", marginBottom: 8 }}>
-        A tua palavra
+      <div style={{ fontSize: big ? 13 : 11, fontWeight: 800, opacity: 0.6, color: "#fff", letterSpacing: 0.3, marginBottom: 6 }}>
+        A tua palavra:
       </div>
-      <div style={{ fontSize: big ? "clamp(36px, 9vw, 60px)" : small ? 20 : 32, fontWeight: 950, color: "#fff", letterSpacing: -0.3, lineHeight: 1.05 }}>
-        {card.word}
+      <div style={{
+        fontSize: big ? "clamp(32px, 8.5vw, 52px)" : small ? 18 : 30,
+        fontWeight: 950, color: "#fff",
+        letterSpacing: -0.3, lineHeight: 1.05,
+      }}>
+        "{card.word}"
       </div>
     </div>
   );
