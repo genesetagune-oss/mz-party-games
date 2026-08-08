@@ -1072,7 +1072,15 @@ export default function App() {
     const playerName = name.trim() || "Player";
     setLoading("A verificar sala…");
     socket.emit("room:preview", { roomCode: code }, (res) => {
-      if (!res?.ok) { setLoading(null); showNotice("Join","Sala não encontrada."); return; }
+      if (!res?.ok) {
+        setLoading(null);
+        const err = res?.error || "sem resposta do servidor";
+        showNotice(
+          "Sala indisponível",
+          `Código "${code}" · ${err}\n\nA sala foi apagada (server reiniciou, host saiu > 2min) ou o código está errado. Cria uma sala nova e testa logo a seguir.`
+        );
+        return;
+      }
       const gt = res.gameType;
       // Se o modal de regras vai aparecer, tiramos o spinner "verificar" para
       // não o cobrir. Se as regras já foram vistas, mantemos o spinner até
