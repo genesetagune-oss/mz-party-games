@@ -244,7 +244,12 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
   // ── WAGER PHASE ───────────────────────────────────────────
   if (phase === "wager" || phase === "finalWager") {
     const isFinal = phase === "finalWager";
-    const options = isFinal ? [0, 10, 20] : [1,2,3,4,5,6,7,8,9,10];
+    // Ronda normal mostra só as apostas AINDA disponíveis (as gastas somem
+    // da grelha). Final tem sempre 0/10/20 disponíveis (não conta as gastas).
+    const fullOptions = isFinal ? [0, 10, 20] : [1,2,3,4,5,6,7,8,9,10];
+    const options = isFinal
+      ? fullOptions
+      : fullOptions.filter(v => !myWagersUsed.includes(v));
 
     return (
       <div className="appBg">
@@ -277,30 +282,32 @@ export default function SporcleMZOnline({ onBack, room, roomCode, gamePublic, ga
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,.3)", marginTop: 4 }}>A aguardar os outros…</div>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: isFinal ? "repeat(3,1fr)" : "repeat(5,1fr)", gap: 8 }}>
-                {options.map(v => {
-                  const used = !isFinal && myWagersUsed.includes(v);
-                  return (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: isFinal ? "repeat(3,1fr)" : `repeat(${Math.min(5, Math.max(1, options.length))},1fr)`, gap: 8 }}>
+                  {options.map(v => (
                     <button
                       key={v}
                       type="button"
-                      disabled={used}
                       onClick={() => socket.emit("game:command", { type: "WAGER", value: v })}
                       style={{
                         padding: isFinal ? "18px 0" : "14px 0",
                         borderRadius: 12, fontWeight: 900,
                         fontSize: isFinal ? 22 : 18,
-                        border: used ? "1.5px solid rgba(255,255,255,.08)" : "1.5px solid rgba(124,93,250,.5)",
-                        background: used ? "rgba(255,255,255,.03)" : "rgba(124,93,250,.15)",
-                        color: used ? "rgba(255,255,255,.18)" : "#fff",
-                        cursor: used ? "not-allowed" : "pointer",
-                        textDecoration: used ? "line-through" : "none",
+                        border: "1.5px solid rgba(124,93,250,.5)",
+                        background: "rgba(124,93,250,.15)",
+                        color: "#fff",
+                        cursor: "pointer",
                         transition: "background .15s",
                       }}
                     >{v}</button>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+                {!isFinal && myWagersUsed.length > 0 && (
+                  <div style={{ marginTop: 10, fontSize: 11, opacity: 0.55, textAlign: "center" }}>
+                    Já gastas: <b>{[...myWagersUsed].sort((a,b) => a-b).join(" · ")}</b>
+                  </div>
+                )}
+              </>
             )}
 
             <div style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.35)" }}>
